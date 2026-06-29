@@ -16,7 +16,7 @@
       "spinnerColor": "#f0b72a"
     },
     "StatusBar": {
-      "style": "dark",
+      "style": "DARK",
       "backgroundColor": "#000000"
     },
     "Keyboard": {

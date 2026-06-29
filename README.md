@@ -12,7 +12,7 @@
 
 ---
 
-**QuantDinger Mobile** is the official mobile and lightweight web client for the [QuantDinger](https://github.com/brokermr810/QuantDinger) quantitative platform. It is built with **Vue 3**, **Vite**, and **Capacitor 6**, and ships as **Android** and **iOS** native shells around the same web app you can also host as **standalone H5**. Connect it to your self-hosted stack or to the hosted service by pointing the app at a QuantDinger-compatible API base URL.
+**QuantDinger Mobile** is the official mobile and lightweight web client for the [QuantDinger](https://github.com/brokermr810/QuantDinger) quantitative platform, a product of **Open Byte Inc**. It is built with **Vue 3**, **Vite**, and **Capacitor 6**, and ships as **Android** and **iOS** native shells around the same web app you can also host as **standalone H5**. Connect it to your self-hosted stack or to the hosted service by pointing the app at a QuantDinger-compatible API base URL.
 
 This repository is licensed under the same **source-available** terms as the [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) desktop frontend. See [License](#license) below and the [`LICENSE`](LICENSE) file for the full text.
 
@@ -82,7 +82,7 @@ quantdinger-mobile/
 │   ├── views/         # Feature screens
 │   ├── App.vue
 │   └── main.js
-├── android/           # Capacitor Android project (after platform add / sync)
+├── android/           # Capacitor Android project source
 ├── ios/               # Capacitor iOS project (macOS)
 ├── capacitor.config.json
 ├── vite.config.js
@@ -111,7 +111,7 @@ quantdinger-mobile/
 
 ## Prerequisites
 
-- **Node.js** 18 or newer (20.x or 22.x LTS recommended).
+- **Node.js** 20.19+ or 22.12+ (Node 22 LTS recommended). Vite 7 will fail on Node 18 with errors such as `crypto.hash is not a function`.
 - **npm** (or compatible client) for installing dependencies.
 - **Android Studio** and an Android SDK when building or debugging Android.
 - **macOS**, **Xcode**, and an **Apple Developer** account for device deployment and App Store–style distribution.
@@ -127,13 +127,38 @@ npm install
 npm run dev
 ```
 
-The dev server is the H5 experience. For native projects, add or sync platforms after a production build:
+The dev server is the H5 experience. The Android project is committed in `android/`; sync native assets after a production build:
 
 ```bash
-npx cap add android    # first time only, if not present
 npx cap add ios        # first time only, on macOS
 npm run build
 npx cap sync
+```
+
+---
+
+## Docker one-click deployment
+
+The main QuantDinger Docker Compose stack now includes the mobile H5 service. Install the full stack from the main repo and open the mobile client at **`http://localhost:8889`**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.sh | bash
+```
+
+When visiting from a phone, use the host machine's LAN IP, for example `http://192.168.1.10:8889`. The container proxies `/api` to the same backend service, so the H5 client can work without manual server URL setup in the default Compose deployment.
+
+Image tag and port can be overridden in the main repo `.env`:
+
+```ini
+IMAGE_TAG=4.0.3
+MOBILE_TAG=4.0.3
+MOBILE_PORT=8889
+# Only needed when running the mobile image outside the main Compose stack.
+# In the default stack this stays http://backend:5000. Do not change it.
+# Only override it when your backend container uses a custom name, for example:
+# BACKEND_URL=http://quantdinger_api:5000
+# Docker Desktop backend running on the host:
+# BACKEND_URL=http://host.docker.internal:5000
 ```
 
 ---
@@ -166,13 +191,77 @@ Enter the **origin** your browser or WebView can reach, **without** a trailing s
 
 After changing the URL, use **Test connection** in settings. If health checks fail, verify TLS, firewall, and that the backend is listening on the host and port you expect.
 
+### Which setting should I change?
+
+| Runtime | How to point it at your backend |
+|---------|----------------------------------|
+| Main QuantDinger Docker stack | Usually change nothing. The mobile container serves H5 on `MOBILE_PORT` and proxies `/api` to the backend service. |
+| Mobile Docker image by itself | By default it looks for `backend:5000` on the same Docker network. If your backend container has a custom name, pass `-e BACKEND_URL=http://your-backend-container:5000`; use `-e BACKEND_URL=http://host.docker.internal:5000` when the backend runs on the Docker Desktop host. This controls the Nginx `/api/` proxy inside the container. |
+| `npm run dev` H5 development | Set `VITE_DEV_API_TARGET=http://127.0.0.1:5000` before starting Vite. Browser requests will still look like `/api/...` on the dev server because Vite proxies them. |
+| Static H5 behind your own Nginx | Prefer same-origin proxy: serve the app at `https://m.example.com` and proxy `https://m.example.com/api/` to the backend. |
+| Native Android/iOS shell | Open app settings and set the server URL to an address the phone can reach, such as `http://192.168.1.10:5000` or `https://api.example.com`. |
+| Preselect a default for new installs | Build with `VITE_DEFAULT_SERVER_URL=https://api.example.com`. Users can still override it in settings. |
+
+If DevTools shows requests such as `http://localhost:5173/api/...`, that is normal in local H5 development: the browser talks to Vite first, and Vite forwards the request to `VITE_DEV_API_TARGET`.
+
 ---
 
 ## Android and iOS builds
 
-1. Run `npm run build:android` or `npm run build:ios`.
-2. Open the native IDE (`npm run cap:android` / `cap:ios`).
-3. Configure signing, package name / bundle identifier, icons, and store listings in the IDE or vendor consoles.
+### Android debug APK
+
+Prerequisites: Node.js 20.19+ or 22.12+, Android Studio, Android SDK, and a JDK. Android Studio's bundled JBR works as `JAVA_HOME`.
+
+```bash
+npm install
+npm run cap:assets
+npm run build:android
+cd android
+./gradlew assembleDebug
+```
+
+The debug APK is written to:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+On Windows PowerShell, use `npm.cmd` if script execution policy blocks `npm.ps1`, and set `JAVA_HOME` for the current shell if Gradle cannot find Java:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+npm.cmd run cap:assets
+npm.cmd run build:android
+cd android
+.\gradlew.bat assembleDebug
+```
+
+### Release builds
+
+Generate the web bundle and sync Android first:
+
+```bash
+npm run cap:assets
+npm run build:android
+cd android
+./gradlew assembleRelease
+```
+
+Release signing is intentionally not committed. Keep keystores and `keystore.properties` private, provide them through your local machine or CI secrets, and configure signing in Android Studio or Gradle before producing store builds.
+
+### Repository policy for Android files
+
+The `android/` project source is part of the repository so contributors can build without running `npx cap add android`. Build outputs and local machine files stay ignored:
+
+- `android/.gradle/`
+- `android/**/build/`
+- `android/local.properties`
+- `android/app/src/main/assets/public/` (generated by `npm run build:android`)
+- `*.apk` and `*.aab`
+- signing keystores and `signing/keystore.properties`
+
+For iOS, run `npm run build:ios` on macOS, then open the native project with `npm run cap:ios`.
 
 Capacitor documentation covers push plugins, splash screens, and store-specific packaging in detail; this README stays aligned with QuantDinger-specific wiring only.
 
@@ -249,6 +338,7 @@ Restart or rebuild the backend container after changes. If OAuth still lands on 
 | CORS or API errors | Prefer same-origin `/api/` proxy; or open CORS on the API for your H5 origin. |
 | OAuth redirect mismatch | `OAUTH_ALLOWED_REDIRECTS` and `FRONTEND_URL` on the backend; rebuild/restart. |
 | SSL handshake errors | Certificate chain, Nginx `ssl_protocols` (TLS 1.2+), `nginx -t`. |
+| Vite says Node 20.19+ or 22.12+ is required | Switch to Node 22 LTS for this mobile repo. The desktop web repo can also run on Node 22, so one modern Node version is enough for both frontends. |
 
 ---
 
@@ -264,10 +354,10 @@ Restart or rebuild the backend container after changes. If OAuth still lands on 
 
 ## License
 
-This software is released under the **QuantDinger Frontend Source-Available License, Version 1.0** (see [`LICENSE`](LICENSE)). It is the **same legal text** as the [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) repository.
+This software is released under the **QuantDinger Frontend Source-Available License, Version 1.0** (see [`LICENSE`](LICENSE)). It is the **same legal text** as the [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) repository. QuantDinger is a product of **Open Byte Inc**.
 
 - **Non-commercial** and **qualified non-profit** uses are permitted **free of charge** under the conditions in the license.
-- **Commercial use** requires a **separate written agreement** with the copyright holder.
+- **Commercial use** requires a **separate written agreement** with Open Byte Inc.
 - You must **preserve** copyright notices, the license file, and in-app **QuantDinger** attribution / branding as required by Section 3.1 of the license.
 
 Project-wide trademark guidance: [`TRADEMARKS.md`](https://github.com/brokermr810/QuantDinger/blob/master/TRADEMARKS.md) in the main QuantDinger repository.
@@ -277,4 +367,4 @@ Project-wide trademark guidance: [`TRADEMARKS.md`](https://github.com/brokermr81
 ## Contact
 
 - Website: [quantdinger.com](https://quantdinger.com)  
-- Commercial licensing and partnerships: see **Section 6** of [`LICENSE`](LICENSE) (email listed there).
+- Commercial licensing and partnerships: [support@quantdinger.com](mailto:support@quantdinger.com).
