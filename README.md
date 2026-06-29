@@ -14,7 +14,7 @@
 
 **QuantDinger Mobile** is the official mobile and lightweight web client for the [QuantDinger](https://github.com/brokermr810/QuantDinger) quantitative platform, a product of **Open Byte Inc**. It is built with **Vue 3**, **Vite**, and **Capacitor 6**, and ships as **Android** and **iOS** native shells around the same web app you can also host as **standalone H5**. Connect it to your self-hosted stack or to the hosted service by pointing the app at a QuantDinger-compatible API base URL.
 
-This repository is licensed under the same **source-available** terms as the [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) desktop frontend. See [License](#license) below and the [`LICENSE`](LICENSE) file for the full text.
+This repository is licensed under the same **source-available** terms as the [QuantSNS-Vue](https://github.com/brokermr810/QuantSNS-Vue) desktop frontend. See [License](#license) below and the [`LICENSE`](LICENSE) file for the full text.
 
 ---
 
@@ -121,8 +121,8 @@ quantdinger-mobile/
 ## Getting started
 
 ```bash
-git clone https://github.com/brokermr810/QuantDinger-Mobile.git
-cd QuantDinger-Mobile
+git clone https://github.com/brokermr810/QuantSNS-Mobile.git
+cd QuantSNS-Mobile
 npm install
 npm run dev
 ```
@@ -347,14 +347,14 @@ Restart or rebuild the backend container after changes. If OAuth still lands on 
 | Project | Role |
 |---------|------|
 | [QuantDinger](https://github.com/brokermr810/QuantDinger) | Backend API, Docker Compose, documentation, prebuilt desktop web bundle |
-| [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) | Desktop web UI source (same license family as this repo) |
-| **QuantDinger-Mobile** | This repository: mobile + H5 client |
+| [QuantSNS-Vue](https://github.com/brokermr810/QuantSNS-Vue) | Desktop web UI source (same license family as this repo) |
+| **QuantSNS-Mobile** | This repository: mobile + H5 client |
 
 ---
 
 ## License
 
-This software is released under the **QuantDinger Frontend Source-Available License, Version 1.0** (see [`LICENSE`](LICENSE)). It is the **same legal text** as the [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) repository. QuantDinger is a product of **Open Byte Inc**.
+This software is released under the **QuantDinger Frontend Source-Available License, Version 1.0** (see [`LICENSE`](LICENSE)). It is the **same legal text** as the [QuantSNS-Vue](https://github.com/brokermr810/QuantSNS-Vue) repository. QuantDinger is a product of **Open Byte Inc**.
 
 - **Non-commercial** and **qualified non-profit** uses are permitted **free of charge** under the conditions in the license.
 - **Commercial use** requires a **separate written agreement** with Open Byte Inc.

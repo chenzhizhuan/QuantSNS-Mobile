@@ -14,7 +14,7 @@
 
 **QuantDinger Mobile** 是 [QuantDinger](https://github.com/brokermr810/QuantDinger) 量化平台的官方**移动端与轻量 Web 客户端**。QuantDinger 是 **Open Byte Inc** 的产品。项目基于 **Vue 3**、**Vite** 与 **Capacitor 6**：同一套前端既可封装为 **Android / iOS** 原生壳，也可将构建产物 **`dist/`** 单独部署为 **H5**。只需在应用内配置可访问的 **API 根地址**，即可对接**自托管**后端或**官方托管**环境。
 
-本仓库许可条款与桌面端 [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) **一致**，均采用 **Source-Available** 授权（详见根目录 [`LICENSE`](LICENSE)）。使用、分发或商用前请务必完整阅读许可正文。
+本仓库许可条款与桌面端 [QuantSNS-Vue](https://github.com/brokermr810/QuantSNS-Vue) **一致**，均采用 **Source-Available** 授权（详见根目录 [`LICENSE`](LICENSE)）。使用、分发或商用前请务必完整阅读许可正文。
 
 ---
 
@@ -120,8 +120,8 @@ quantdinger-mobile/
 ## 快速开始
 
 ```bash
-git clone https://github.com/brokermr810/QuantDinger-Mobile.git
-cd QuantDinger-Mobile
+git clone https://github.com/brokermr810/QuantSNS-Mobile.git
+cd QuantSNS-Mobile
 npm install
 npm run dev
 ```
@@ -347,14 +347,14 @@ OAUTH_ALLOWED_REDIRECTS=https://m.example.com,https://m.example.com/login,https:
 | 仓库 | 说明 |
 |------|------|
 | [QuantDinger](https://github.com/brokermr810/QuantDinger) | 后端、Docker Compose、文档、预构建桌面 Web |
-| [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) | 桌面 Web 源码（与本移动端**同一许可家族**） |
-| **QuantDinger-Mobile** | 本仓库：移动端 + H5 |
+| [QuantSNS-Vue](https://github.com/brokermr810/QuantSNS-Vue) | 桌面 Web 源码（与本移动端**同一许可家族**） |
+| **QuantSNS-Mobile** | 本仓库：移动端 + H5 |
 
 ---
 
 ## 许可协议
 
-本软件适用 **QuantDinger Frontend Source-Available License v1.0**（全文见 [`LICENSE`](LICENSE)），与 [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) **同一份法律文本**。QuantDinger 是 **Open Byte Inc** 的产品。
+本软件适用 **QuantDinger Frontend Source-Available License v1.0**（全文见 [`LICENSE`](LICENSE)），与 [QuantSNS-Vue](https://github.com/brokermr810/QuantSNS-Vue) **同一份法律文本**。QuantDinger 是 **Open Byte Inc** 的产品。
 
 - **非商业用途**及**符合资格的非营利 / 教育等用途**，在遵守条款的前提下**免费**使用。  
 - **商业用途**须另行取得 Open Byte Inc 的**书面商业授权**。  
