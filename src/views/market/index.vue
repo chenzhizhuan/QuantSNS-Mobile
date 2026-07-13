@@ -61,6 +61,10 @@
                 <van-icon :name="item.pricing_type === 'paid' ? 'gold-coin-o' : 'gift-o'" />
                 {{ item.pricing_type === 'paid' ? $t('market.filter_paid') : $t('market.filter_free') }}
               </span>
+              <span v-if="isVipFree(item)" class="cover-badge vip-free">
+                <van-icon name="gem-o" />
+                {{ $t('market.vip_free') }}
+              </span>
               <span class="cover-score">{{ $t('market.score_short') }} {{ formatScore(item.score) }}</span>
             </div>
             <div class="cover-bottom">
@@ -157,7 +161,8 @@ export default {
       return [
         { value: '', label: this.$t('market.filter_all') },
         { value: 'free', label: this.$t('market.filter_free') },
-        { value: 'paid', label: this.$t('market.filter_paid') }
+        { value: 'paid', label: this.$t('market.filter_paid') },
+        { value: 'vip_free', label: this.$t('market.filter_vip_free') }
       ]
     },
     sortColumns() {
@@ -196,7 +201,8 @@ export default {
           page: this.page,
           page_size: this.pageSize,
           keyword: this.keyword || undefined,
-          pricing_type: this.pricing || undefined,
+          pricing_type: this.pricing === 'vip_free' ? undefined : (this.pricing || undefined),
+          vip_free: this.pricing === 'vip_free' ? 1 : undefined,
           asset_type: this.assetType,
           sort_by: this.sort
         })
@@ -311,6 +317,9 @@ export default {
     typeLabel(item) {
       return getAssetLabel(item.asset_type, this.$t)
     },
+    isVipFree(item) {
+      return !!item?.vip_free
+    },
     coverStyle(item) {
       const palettes = [
         ['#667eea', '#764ba2'],
@@ -401,14 +410,29 @@ export default {
 .filter-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 4px 8px;
+  overflow: hidden;
 }
-.segment { display: flex; gap: 6px; }
+.segment {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 2px;
+  scrollbar-width: none;
+}
+.segment::-webkit-scrollbar {
+  display: none;
+}
 .seg-item {
-  padding: 6px 14px;
+  flex: 0 0 auto;
+  padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
   color: var(--text-2);
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -419,16 +443,27 @@ export default {
   border-color: var(--accent);
 }
 .sort-cell {
-  background: transparent;
-  padding: 0 12px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 118px;
+  padding: 0 8px 0 10px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   color: var(--text-2);
   font-size: 12px;
-  flex: none;
-  width: auto;
 }
 :deep(.sort-cell .van-cell__title) {
   flex: none;
-  padding-right: 6px;
+  padding-right: 4px;
+}
+:deep(.sort-cell .van-cell__value) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .grid {
   padding: 6px 16px 24px;
@@ -464,6 +499,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
 }
 .cover-badge {
   display: inline-flex;
@@ -475,6 +511,11 @@ export default {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+.cover-badge.vip-free {
+  margin-right: auto;
+  color: #1f1300;
+  background: linear-gradient(135deg, #fde68a, #f59e0b);
 }
 .cover-score {
   padding: 4px 9px;
