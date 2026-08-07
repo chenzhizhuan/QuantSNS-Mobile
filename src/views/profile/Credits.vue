@@ -1,6 +1,11 @@
 <template>
   <div class="credits-page">
-    <van-nav-bar :title="$t('profile.credits_recharge')" :border="false" />
+    <van-nav-bar
+      :title="$t('profile.credits_recharge')"
+      :border="false"
+      left-arrow
+      @click-left="goBack"
+    />
 
     <div class="balance-card">
       <div class="balance-label">{{ $t('profile.credits') }}</div>
@@ -46,7 +51,7 @@
           <div class="col">
             <span class="name">{{ actionLabel(item.action) }}</span>
             <span class="sub">
-              <span v-if="item.feature">{{ item.feature }}</span>
+              <span v-if="featureLabel(item.feature, item.action)">{{ featureLabel(item.feature, item.action) }}</span>
               <span v-if="item.remark" class="remark">{{ item.remark }}</span>
             </span>
             <span class="time">{{ formatTime(item.created_at) }}</span>
@@ -313,6 +318,10 @@ export default {
     this.stopPolling()
   },
   methods: {
+    goBack() {
+      if (window.history.length > 1) this.$router.back()
+      else this.$router.replace('/profile')
+    },
     planName(key, value) {
       if (value?.name || value?.title) return value.name || value.title
       const loc = this.$i18n?.locale
@@ -504,6 +513,13 @@ export default {
       const text = this.$t(mapped)
       return text === mapped ? (action || '-') : text
     },
+    featureLabel(feature, action) {
+      const value = String(feature || '').trim()
+      if (!value || value.toLowerCase() === String(action || '').trim().toLowerCase()) return ''
+      const key = `profile.feature_${value.toLowerCase()}`
+      const text = this.$t(key)
+      return text === key ? value : text
+    },
     formatCredits(value) {
       return new Intl.NumberFormat('en-US').format(Number(value || 0))
     },
@@ -541,7 +557,7 @@ export default {
 }
 
 .balance-card {
-  margin: 10px 16px 16px;
+  margin: 10px var(--page-gutter) 16px;
   padding: 24px 22px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -578,7 +594,7 @@ export default {
   color: var(--text-2);
 }
 
-.section { margin: 0 16px 18px; }
+.section { margin: 0 var(--page-gutter) 18px; }
 .section-head {
   display: flex;
   align-items: center;

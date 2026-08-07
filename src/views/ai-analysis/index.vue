@@ -143,8 +143,8 @@
           {{ $t('ai_analysis.next_step') }}
         </span>
         <div class="ns-actions">
-          <van-button size="small" type="primary" @click="generateStrategyFromResult">
-            <van-icon name="cluster-o" /> {{ $t('ai_analysis.generate_strategy') }}
+          <van-button size="small" type="primary" @click="chooseStrategy">
+            <van-icon name="cluster-o" /> {{ $t('ai_analysis.choose_strategy') }}
           </van-button>
         </div>
       </div>
@@ -419,7 +419,7 @@
 
 <script>
 import { showToast } from 'vant'
-import { aiAnalysisApi, watchlistApi } from '@/api'
+import { aiAnalysisApi, klineApi } from '@/api'
 import { useAiAnalysisStore, useSettingsStore } from '@/stores'
 import SymbolPicker from '@/components/SymbolPicker.vue'
 
@@ -715,8 +715,8 @@ export default {
         return
       }
       try {
-        const res = await watchlistApi.getPrices([{ market, symbol }])
-        const row = (res?.data || [])[0]
+        const res = await klineApi.getPrice({ market, symbol })
+        const row = res?.data
         if (row && row.price != null) {
           this.livePrice = Number(row.price)
           this.liveChange = row.changePercent != null ? Number(row.changePercent) : null
@@ -891,15 +891,8 @@ export default {
       if (t.includes('bear') || t.includes('down')) return 'down'
       return 'neutral'
     },
-    generateStrategyFromResult() {
-      const sym = this.form.symbol.trim()
-      const decision = String(this.result?.decision || '').toUpperCase()
-      const locale = this.$i18n?.locale
-      const isZh = locale === 'zh-CN' || locale === 'zh-TW'
-      const prompt = isZh
-        ? `基于 ${sym} (${this.form.timeframe}) 的 AI 分析建议 ${decision}，请生成一个合适的交易机器人参数。分析摘要：${this.result?.summary || ''}`
-        : `Based on the AI analysis of ${sym} (${this.form.timeframe}) suggesting ${decision}, please generate suitable trading bot parameters. Summary: ${this.result?.summary || ''}`
-      this.$router.push({ path: '/trading/create/ai', query: { prompt, symbol: sym } })
+    chooseStrategy() {
+      this.$router.push({ name: 'BotCreate' })
     }
   }
 }
@@ -916,7 +909,7 @@ export default {
 
 /* Hero card */
 .hero-card {
-  margin: 8px 16px 14px;
+  margin: 8px var(--page-gutter) 14px;
   padding: 20px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -1021,7 +1014,7 @@ export default {
 
 /* Loading card */
 .loading-card {
-  margin: 0 16px 14px;
+  margin: 0 var(--page-gutter) 14px;
   padding: 22px 20px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -1051,7 +1044,7 @@ export default {
 .loading-footer { margin-top: 16px; font-size: 11px; color: var(--text-4); text-align: right; }
 
 /* Result wrapper */
-.result-wrapper { padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+.result-wrapper { padding: 0 var(--page-gutter); display: flex; flex-direction: column; gap: 12px; }
 
 /* Decision card */
 .decision-card {

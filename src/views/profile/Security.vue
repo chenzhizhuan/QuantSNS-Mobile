@@ -65,7 +65,7 @@
 
 <script>
 import { showToast } from 'vant'
-import { authApi } from '@/api'
+import { authApi, userApi } from '@/api'
 import { useUserStore } from '@/stores'
 
 export default {
@@ -91,6 +91,9 @@ export default {
       return this.userStore.userInfo?.email || ''
     }
   },
+  mounted() {
+    this.loadProfile()
+  },
   beforeUnmount() {
     if (this.cooldownTimer) {
       clearInterval(this.cooldownTimer)
@@ -98,6 +101,15 @@ export default {
     }
   },
   methods: {
+    async loadProfile() {
+      if (this.userEmail) return
+      try {
+        const response = await userApi.getProfile()
+        if (response?.data) this.userStore.setUserInfo(response.data)
+      } catch (error) {
+        console.error('Load profile for security page failed:', error)
+      }
+    },
     startCooldown() {
       this.cooldown = 60
       this.cooldownTimer = setInterval(() => {
@@ -172,7 +184,7 @@ export default {
 :deep(.van-nav-bar .van-icon) { color: var(--text); }
 
 .hero {
-  margin: 18px 16px 20px;
+  margin: 18px var(--page-gutter) 20px;
   padding: 24px 20px;
   text-align: center;
   border-radius: var(--radius-lg);
@@ -219,7 +231,7 @@ export default {
 }
 
 .form-card {
-  margin: 0 16px;
+  margin: 0 var(--page-gutter);
   padding: 12px 4px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -277,7 +289,7 @@ export default {
 }
 
 .actions {
-  margin: 20px 16px 0;
+  margin: 20px var(--page-gutter) 0;
 }
 
 .actions :deep(.van-button) {

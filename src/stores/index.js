@@ -1,28 +1,15 @@
 import { createPinia, defineStore } from 'pinia'
-import { DEFAULT_THEME, resolveServerUrl, shouldResetSavedServerUrl } from '@/config'
+import { DEFAULT_THEME } from '@/config'
 import { initialLocale, setLocale as applyLocale } from '@/locales'
 
 export const pinia = createPinia()
-
-const getInitialServerUrl = () => {
-  const savedUrl = localStorage.getItem('serverUrl')
-  if (shouldResetSavedServerUrl(savedUrl)) {
-    localStorage.removeItem('serverUrl')
-  }
-  return resolveServerUrl(savedUrl)
-}
 
 const CRYPTO_EXCHANGE_IDS = new Set([
   'binance',
   'okx',
   'bitget',
   'bybit',
-  'coinbaseexchange',
-  'coinbase_exchange',
-  'kraken',
-  'kucoin',
   'gate',
-  'bitfinex',
   'htx'
 ])
 
@@ -169,21 +156,11 @@ export const useDashboardStore = defineStore('dashboard', {
 
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
-    serverUrl: getInitialServerUrl(),
     theme: localStorage.getItem('theme') || DEFAULT_THEME,
     locale: initialLocale
   }),
 
   actions: {
-    setServerUrl(url) {
-      this.serverUrl = url
-      if (url) {
-        localStorage.setItem('serverUrl', url)
-      } else {
-        localStorage.removeItem('serverUrl')
-      }
-    },
-
     setTheme(theme) {
       this.theme = theme
       localStorage.setItem('theme', theme)
@@ -331,25 +308,20 @@ export const useQuickTradeStore = defineStore('quickTrade', {
     setSelectedCredential(id) {
       this.selectedCredentialId = id || null
     },
-
     setMarketType(type) {
       this.marketType = type || 'swap'
     },
-
     setBalance(data) {
       this.balance = data || null
     },
-
     setPositions(list) {
       this.positions = Array.isArray(list) ? list : []
     },
-
     setHistory(list) {
       this.history = Array.isArray(list) ? list : []
     },
-
-    setLoading(val) {
-      this.loading = val
+    setLoading(value) {
+      this.loading = Boolean(value)
     }
   }
 })

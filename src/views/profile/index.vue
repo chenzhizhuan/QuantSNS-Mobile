@@ -24,6 +24,14 @@
             </span>
           </div>
         </div>
+        <button
+          type="button"
+          class="edit-profile-button"
+          :aria-label="$t('profile.edit_profile')"
+          @click="openProfileEditor"
+        >
+          <van-icon name="edit" />
+        </button>
       </div>
     </div>
 
@@ -99,6 +107,18 @@
     <div class="menu-section">
       <span class="menu-section-title">{{ $t('profile.section_preferences') }}</span>
       <div class="menu-group">
+        <div class="menu-item" @click="$router.push('/profile/language')">
+          <div class="menu-icon c-blue"><van-icon name="font-o" /></div>
+          <span class="label">{{ $t('profile.language') }}</span>
+          <span class="menu-value">{{ currentLanguageLabel }}</span>
+          <van-icon name="arrow" class="arrow" />
+        </div>
+        <div class="menu-item" role="switch" :aria-checked="isDarkTheme" @click="toggleTheme">
+          <div class="menu-icon c-violet"><van-icon :name="isDarkTheme ? 'closed-eye' : 'eye-o'" /></div>
+          <span class="label">{{ $t('profile.appearance') }}</span>
+          <span class="menu-value">{{ $t(isDarkTheme ? 'profile.theme_dark' : 'profile.theme_light') }}</span>
+          <van-switch :model-value="isDarkTheme" size="20" @click.stop="toggleTheme" />
+        </div>
         <div class="menu-item" @click="$router.push('/profile/notification-settings')">
           <div class="menu-icon c-orange"><van-icon name="setting-o" /></div>
           <span class="label">{{ $t('profile.notif_settings') }}</span>
@@ -117,13 +137,57 @@
         {{ $t('profile.logout') }}
       </van-button>
     </div>
+
+    <van-popup
+      v-model:show="profileEditorOpen"
+      position="bottom"
+      round
+      :style="{ height: '72%' }"
+    >
+      <div class="profile-editor">
+        <div class="editor-head">
+          <div>
+            <strong>{{ $t('profile.edit_profile') }}</strong>
+            <span>{{ $t('profile.edit_profile_desc') }}</span>
+          </div>
+          <van-icon name="cross" @click="profileEditorOpen = false" />
+        </div>
+        <div class="editor-body">
+          <div class="avatar-preview">
+            <img :src="profileForm.avatar || logoUrl" :alt="profileForm.nickname" @error="onAvatarError" />
+          </div>
+          <van-field
+            v-model="profileForm.nickname"
+            :label="$t('profile.nickname')"
+            :placeholder="$t('profile.nickname_placeholder')"
+            maxlength="40"
+            show-word-limit
+          />
+          <van-field
+            v-model="profileForm.avatar"
+            :label="$t('profile.avatar_url')"
+            :placeholder="$t('profile.avatar_url_placeholder')"
+          />
+          <p class="editor-hint">{{ $t('profile.avatar_url_hint') }}</p>
+          <van-field
+            v-model="profileForm.timezone"
+            :label="$t('profile.timezone')"
+            :placeholder="$t('profile.timezone_placeholder')"
+          />
+          <p class="editor-hint">{{ $t('profile.timezone_hint') }}</p>
+          <van-button type="primary" round block :loading="savingProfile" @click="saveProfile">
+            {{ $t('common.save') }}
+          </van-button>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script>
-import { showConfirmDialog } from 'vant'
+import { showConfirmDialog, showToast } from 'vant'
 import { authApi, getBaseUrl, userApi } from '@/api'
-import { useUserStore } from '@/stores'
+import { useSettingsStore, useUserStore } from '@/stores'
 import logoUrl from '@/assets/slogo.png'
 
 export default {
@@ -143,6 +207,13 @@ export default {
         referral_bonus: 0,
         register_bonus: 0,
         referral_code: ''
+      },
+      profileEditorOpen: false,
+      savingProfile: false,
+      profileForm: {
+        nickname: '',
+        avatar: '',
+        timezone: ''
       }
     }
   },
@@ -153,6 +224,22 @@ export default {
     },
     userInfo() {
       return this.userStore.userInfo
+    },
+    settingsStore() {
+      return useSettingsStore()
+    },
+    isDarkTheme() {
+      return this.settingsStore.theme !== 'light'
+    },
+    currentLanguageLabel() {
+      const labels = {
+        'zh-CN': '简体中文',
+        'zh-TW': '繁體中文',
+        'en-US': 'English',
+        'ja-JP': '日本語',
+        'ko-KR': '한국어'
+      }
+      return labels[this.settingsStore.locale] || this.settingsStore.locale
     },
     avatarUrl() {
       const raw = (this.userInfo?.avatar || '').trim()
@@ -182,6 +269,9 @@ export default {
   },
 
   methods: {
+    toggleTheme() {
+      this.settingsStore.setTheme(this.isDarkTheme ? 'light' : 'dark')
+    },
     async loadData() {
       try {
         const [profileRes, referralRes] = await Promise.allSettled([
@@ -227,6 +317,42 @@ export default {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     },
 
+    openProfileEditor() {
+      this.profileForm = {
+        nickname: this.userInfo?.nickname || '',
+        avatar: this.userInfo?.avatar || '',
+        timezone: this.userInfo?.timezone || ''
+      }
+      this.profileEditorOpen = true
+    },
+
+    async saveProfile() {
+      const nickname = this.profileForm.nickname.trim()
+      if (!nickname) {
+        showToast({ message: this.$t('profile.nickname_required'), type: 'fail' })
+        return
+      }
+      this.savingProfile = true
+      try {
+        await userApi.updateProfile({
+          nickname,
+          avatar: this.profileForm.avatar.trim(),
+          timezone: this.profileForm.timezone.trim()
+        })
+        this.userStore.setUserInfo({
+          ...(this.userInfo || {}),
+          nickname,
+          avatar: this.profileForm.avatar.trim(),
+          timezone: this.profileForm.timezone.trim()
+        })
+        showToast({ message: this.$t('profile.profile_saved'), type: 'success' })
+        this.profileEditorOpen = false
+        await this.loadData()
+      } finally {
+        this.savingProfile = false
+      }
+    },
+
     async handleLogout() {
       try {
         await showConfirmDialog({
@@ -253,7 +379,7 @@ export default {
 <style scoped>
 .profile-page {
   min-height: 100vh;
-  padding: calc(16px + var(--safe-area-top, 0px)) 16px calc(40px + var(--safe-area-bottom, 0px));
+  padding: calc(16px + var(--safe-area-top, 0px)) var(--page-gutter) calc(40px + var(--safe-area-bottom, 0px));
   background: var(--bg);
   color: var(--text);
 }
@@ -280,6 +406,19 @@ export default {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.edit-profile-button {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--accent);
+  font-size: 16px;
 }
 
 .avatar {
@@ -553,6 +692,14 @@ export default {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
+.menu-value {
+  max-width: 96px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .badge {
   min-width: 18px;
@@ -585,5 +732,87 @@ export default {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--down);
+}
+
+.profile-editor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+}
+
+.editor-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px 18px 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.editor-head strong,
+.editor-head span {
+  display: block;
+}
+
+.editor-head strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.editor-head span {
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.editor-head .van-icon {
+  color: var(--text-2);
+  font-size: 18px;
+}
+
+.editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px calc(24px + var(--safe-area-bottom, 0px));
+}
+
+.avatar-preview {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 8px;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editor-body :deep(.van-cell) {
+  padding: 14px 0;
+  background: transparent;
+  color: var(--text);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.editor-body :deep(.van-field__label) { color: var(--text-2); }
+.editor-body :deep(.van-field__control) { color: var(--text); }
+.editor-body :deep(.van-cell::after) { display: none; }
+
+.editor-hint {
+  margin: 7px 0 0;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.editor-body > .van-button {
+  margin-top: 18px;
 }
 </style>

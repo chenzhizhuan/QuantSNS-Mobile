@@ -1,21 +1,18 @@
 <template>
   <div class="ai-copilot-page">
     <div class="top-bar">
-      <button type="button" class="nav-menu-btn" @click="openNav">
-        <van-icon name="wap-nav" />
-      </button>
       <div class="top-copy">
         <span class="eyebrow">
           {{ text.title }}
         </span>
       </div>
-      <button type="button" class="history-btn" @click="openHistoryDrawer">
+      <button type="button" class="history-btn" :aria-label="text.sessions" @click="openHistoryDrawer">
         <van-icon name="clock-o" />
         <span>{{ text.sessions }}</span>
       </button>
     </div>
 
-    <div class="copilot-body">
+    <div :class="['copilot-body', { empty: !messages.length }]">
       <div class="chat-panel">
         <div v-if="!messages.length" class="welcome-card">
           <div class="welcome-title-row">
@@ -30,10 +27,6 @@
             :key="msg.localId || msg.id"
             :class="['message-row', msg.role]"
           >
-            <div class="avatar">
-              <van-icon v-if="msg.role === 'user'" name="user-o" />
-              <span v-else class="ai-avatar-mark">AI</span>
-            </div>
             <div class="bubble-wrap">
               <div :class="['bubble', { 'report-bubble': msg.report || msg.reportLoading || msg.reportError }]">
                 <div v-if="msg.attachments?.length" class="attachment-preview">
@@ -122,6 +115,10 @@
                     </div>
                   </template>
                 </div>
+                <div v-if="msg.streamWarning" class="stream-warning">
+                  <van-icon name="warning-o" />
+                  <span>{{ msg.streamWarning }}</span>
+                </div>
                 <van-loading v-if="msg.loading" size="18" />
               </div>
               <div v-if="msg.role === 'assistant' && msg.content && !msg.loading" class="bubble-tools">
@@ -130,9 +127,22 @@
                   {{ text.copy }}
                 </button>
               </div>
-              <div v-if="msg.actions?.length" class="action-strip">
+              <div v-if="agentUsageItems(msg).length" class="agent-usage">
+                <span class="agent-usage-title">
+                  <van-icon name="cluster-o" />
+                  {{ agentUsageLabel(msg) }}
+                </span>
+                <span
+                  v-for="item in agentUsageItems(msg)"
+                  :key="`${item.kind}-${item.id}`"
+                  :class="['agent-usage-chip', `agent-usage-chip--${item.kind}`]"
+                >
+                  {{ item.label }}
+                </span>
+              </div>
+              <div v-if="visibleMessageActions(msg).length" class="action-strip">
                 <button
-                  v-for="action in msg.actions"
+                  v-for="action in visibleMessageActions(msg)"
                   :key="action.type + action.label"
                   type="button"
                   @click="handleCopilotAction(action)"
@@ -218,11 +228,15 @@
               <van-icon name="photo-o" />
             </button>
           </div>
-          <button type="button" class="send-action" :disabled="sending || !canSend" @click="sendMessage">
+          <button
+            type="button"
+            class="send-action"
+            :aria-label="text.send"
+            :disabled="sending || !canSend"
+            @click="sendMessage"
+          >
             <van-loading v-if="sending" size="16" />
-            <template v-else>
-              <van-icon name="guide-o" />
-            </template>
+            <template v-else>{{ text.send }}</template>
           </button>
         </div>
       </div>
@@ -334,6 +348,11 @@ const COPY = {
     promptNeeded: '请输入问题或上传图片',
     strategyPromptNeeded: '请先写一点策略想法',
     generateFailed: '生成失败',
+    streamInterrupted: '连接中断，已保留当前内容，请重试。',
+    streamIncomplete: '响应未正常结束，请重试。',
+    outputLimit: '回答已达到输出上限，当前内容可能不完整。',
+    desktopOnly: '手机端仅支持使用与监控，请在电脑端完成代码编辑或回测。',
+    usedThisTurn: '本次使用',
     taskDiagnose: '诊断标的',
     taskDiagnoseDesc: '趋势、量能、支撑阻力和风险',
     taskChart: '看图诊断',
@@ -377,6 +396,11 @@ const COPY = {
     promptNeeded: '請輸入問題或上傳圖片',
     strategyPromptNeeded: '請先寫一點策略想法',
     generateFailed: '生成失敗',
+    streamInterrupted: '連線中斷，已保留目前內容，請重試。',
+    streamIncomplete: '回應未正常結束，請重試。',
+    outputLimit: '回答已達到輸出上限，目前內容可能不完整。',
+    desktopOnly: '手機端僅支援使用與監控，請在電腦端完成程式碼編輯或回測。',
+    usedThisTurn: '本次使用',
     taskDiagnose: '診斷標的',
     taskDiagnoseDesc: '趨勢、量能、支撐阻力和風險',
     taskChart: '看圖診斷',
@@ -420,6 +444,11 @@ const COPY = {
     promptNeeded: 'Enter a question or upload an image',
     strategyPromptNeeded: 'Write a short strategy idea first',
     generateFailed: 'Generation failed',
+    streamInterrupted: 'The connection was interrupted. The current response was kept; please retry.',
+    streamIncomplete: 'The response did not finish correctly. Please retry.',
+    outputLimit: 'The response reached the output limit and may be incomplete.',
+    desktopOnly: 'Mobile supports usage and monitoring only. Use desktop for code editing or backtesting.',
+    usedThisTurn: 'Used this turn',
     taskDiagnose: 'Diagnose',
     taskDiagnoseDesc: 'Trend, volume, levels, and risk',
     taskChart: 'Chart review',
@@ -463,6 +492,11 @@ const COPY = {
     promptNeeded: '質問を入力するか画像をアップロードしてください',
     strategyPromptNeeded: 'まず戦略アイデアを入力してください',
     generateFailed: '生成に失敗しました',
+    streamInterrupted: '接続が中断されました。現在の内容を保持しました。再試行してください。',
+    streamIncomplete: '応答が正常に完了しませんでした。もう一度お試しください。',
+    outputLimit: '出力上限に達したため、回答が不完全な可能性があります。',
+    desktopOnly: 'モバイルは利用と監視専用です。コード編集やバックテストはデスクトップで行ってください。',
+    usedThisTurn: '今回使用',
     taskDiagnose: '銘柄診断',
     taskDiagnoseDesc: 'トレンド、出来高、重要水準、リスク',
     taskChart: 'チャート診断',
@@ -506,6 +540,11 @@ const COPY = {
     promptNeeded: '질문을 입력하거나 이미지를 업로드하세요',
     strategyPromptNeeded: '먼저 전략 아이디어를 입력하세요',
     generateFailed: '생성 실패',
+    streamInterrupted: '연결이 중단되었습니다. 현재 내용을 유지했으니 다시 시도해 주세요.',
+    streamIncomplete: '응답이 정상적으로 완료되지 않았습니다. 다시 시도해 주세요.',
+    outputLimit: '출력 한도에 도달하여 답변이 불완전할 수 있습니다.',
+    desktopOnly: '모바일은 사용 및 모니터링 전용입니다. 코드 편집과 백테스트는 데스크톱에서 진행하세요.',
+    usedThisTurn: '이번에 사용',
     taskDiagnose: '종목 진단',
     taskDiagnoseDesc: '추세, 거래량, 레벨, 리스크',
     taskChart: '차트 진단',
@@ -521,11 +560,6 @@ const COPY = {
 
 export default {
   name: 'AiHub',
-  inject: {
-    openAppNav: {
-      default: null
-    }
-  },
   components: { SymbolPicker },
   data() {
     return {
@@ -713,9 +747,6 @@ export default {
         showToast({ message: this.text.copyFailed, type: 'fail' })
       }
     },
-    openNav() {
-      if (typeof this.openAppNav === 'function') this.openAppNav()
-    },
     taskPrompt(task) {
       const label = `${this.context.market}:${this.context.symbol}`
       const locale = this.$i18n?.locale || 'zh-CN'
@@ -818,7 +849,7 @@ export default {
               selected_task: task?.key || null
             }
           }
-          await this.sendMessageStream(payload, pendingMsg)
+          await this.sendMessageReliable(payload, pendingMsg)
         }
       } catch (err) {
         if (pendingMsg.reportLoading) {
@@ -879,50 +910,203 @@ export default {
     },
     async sendMessageStream(payload, pendingMsg) {
       let hasContent = false
-      await aiChatApi.streamMessage(payload, async (event, data) => {
-        if (event === 'meta') {
-          this.sessionId = data?.session_id || this.sessionId
-          return
-        }
-        if (['delta', 'message', 'content'].includes(event)) {
-          const text = this.extractStreamText(data)
-          if (!text) return
-          if (!hasContent) {
-            this.updatePendingMessage(pendingMsg, { content: '', loading: false })
+      let streamAccepted = false
+      try {
+        const streamResult = await aiChatApi.streamMessage(payload, async (event, data) => {
+          if (event === 'accepted' || event === 'meta') {
+            streamAccepted = true
+            this.sessionId = data?.session_id || this.sessionId
+            return
+          }
+          if (['delta', 'message', 'content'].includes(event)) {
+            const text = this.extractStreamText(data)
+            if (!text) return
+            if (!hasContent) {
+              this.updatePendingMessage(pendingMsg, { content: '', loading: false })
+              hasContent = true
+            }
+            await this.revealStreamText(pendingMsg, text)
+            return
+          }
+          if (event === 'replace') {
+            const text = this.extractStreamText(data)
+            if (!text) throw new Error(this.text.generateFailed)
             hasContent = true
+            this.updatePendingMessage(pendingMsg, {
+              content: text,
+              loading: false,
+              streamWarning: ''
+            })
+            return
           }
-          await this.revealStreamText(pendingMsg, text)
-          return
-        }
-        if (event === 'done') {
-          this.sessionId = data?.session_id || this.sessionId
-          this.updatePendingMessage(pendingMsg, { id: data?.message_id || pendingMsg.id })
-          const finalText = this.extractStreamText(data)
-          if (finalText && !hasContent) {
-            this.updatePendingMessage(pendingMsg, { content: '', loading: false })
-            hasContent = true
-            await this.revealStreamText(pendingMsg, finalText)
+          if (event === 'warning') {
+            streamAccepted = true
+            this.updatePendingMessage(pendingMsg, {
+              loading: false,
+              streamWarning: data?.code === 'output_limit'
+                ? this.text.outputLimit
+                : (data?.msg || this.text.streamIncomplete)
+            })
+            return
           }
-          if (data?.actions) {
-            this.updatePendingMessage(pendingMsg, { actions: this.filterMobileActions(data.actions || []) })
+          if (event === 'done') {
+            streamAccepted = true
+            this.sessionId = data?.session_id || this.sessionId
+            this.updatePendingMessage(pendingMsg, { id: data?.message_id || pendingMsg.id })
+            const finalText = this.extractStreamText(data)
+            if (finalText && !hasContent) {
+              this.updatePendingMessage(pendingMsg, { content: '', loading: false })
+              hasContent = true
+              await this.revealStreamText(pendingMsg, finalText)
+            }
+            if (data?.actions) {
+              this.updatePendingMessage(pendingMsg, { actions: this.filterMobileActions(data.actions || []) })
+            }
+            return
           }
-          return
+          if (event === 'error') {
+            streamAccepted = true
+            const streamError = new Error(data?.msg || data?.message || this.text.generateFailed)
+            streamError.streamErrorType = data?.error_type || ''
+            throw streamError
+          }
+        })
+        if (!streamResult?.completed) {
+          throw new Error(this.text.streamIncomplete)
         }
-        if (event === 'error') {
-          throw new Error(data?.msg || data?.message || this.text.generateFailed)
+      } catch (error) {
+        if (error && typeof error === 'object') {
+          error.streamHasContent = hasContent
+          error.streamAccepted = streamAccepted
         }
-      })
+        throw error
+      }
       if (!hasContent && pendingMsg.content === this.text.sending) {
         throw new Error(this.text.generateFailed)
       }
     },
-    filterMobileActions(actions) {
-      return (actions || []).filter((action) => {
-        const type = String(action.type || '').toLowerCase()
-        return !/backtest|indicator|script|code/.test(type)
+    async sendMessageReliable(payload, pendingMsg) {
+      try {
+        await this.sendMessageStream(payload, pendingMsg)
+        return
+      } catch (error) {
+        if (error?.streamAccepted || error?.streamHasContent) {
+          const hasContent = Boolean(String(pendingMsg.content || '').trim()) && pendingMsg.content !== this.text.sending
+          this.updatePendingMessage(pendingMsg, {
+            content: hasContent ? pendingMsg.content : (error?.message || this.text.generateFailed),
+            loading: false,
+            streamWarning: hasContent ? this.text.streamInterrupted : ''
+          })
+          showToast({
+            message: hasContent ? this.text.streamInterrupted : (error?.message || this.text.generateFailed),
+            type: 'fail'
+          })
+          return
+        }
+        this.updatePendingMessage(pendingMsg, {
+          content: this.text.sending,
+          loading: true,
+          actions: []
+        })
+      }
+
+      const response = await aiChatApi.sendMessage({
+        ...payload,
+        session_id: this.sessionId || payload.session_id
       })
+      const data = response?.data || {}
+      const reply = String(data.reply || data.answer || '').trim()
+      if (!reply) throw new Error(this.text.generateFailed)
+
+      this.sessionId = data.session_id || this.sessionId
+      this.updatePendingMessage(pendingMsg, {
+        id: data.message_id || pendingMsg.id,
+        content: '',
+        loading: false,
+        actions: this.filterMobileActions(data.actions || [])
+      })
+      await this.revealStreamText(pendingMsg, reply)
+    },
+    isUnsupportedMobileAction(action) {
+      const payload = action?.payload || {}
+      const signature = [
+        action?.type,
+        action?.path,
+        action?.workflow,
+        payload.intent,
+        payload.path,
+        payload.workflow,
+        payload.target_type
+      ].filter(Boolean).join(' ').toLowerCase()
+      return /backtest|generate[-_]?(code|strategy)|code[-_]?(edit|editor|generation)|source[-_]?edit|script[-_]?(edit|editor)|indicator[-_]?research|strategy[-_]?research|publish|compile|strategy-ide|indicator-ide|backtest-center/.test(signature)
+    },
+    filterMobileActions(actions) {
+      return (actions || []).filter((action) => action && !this.isUnsupportedMobileAction(action))
+    },
+    agentUsageAction(message) {
+      const actions = Array.isArray(message?.actions) ? message.actions : []
+      return actions.find((action) => action?.type === 'agent_usage') || null
+    },
+    agentUsageItems(message) {
+      const payload = this.agentUsageAction(message)?.payload || {}
+      const seen = new Set()
+      const normalize = (items, kind) => (Array.isArray(items) ? items : [])
+        .map((item) => ({
+          kind,
+          id: String(item?.id || '').trim(),
+          label: String(item?.label || item?.id || '').trim()
+        }))
+        .filter((item) => {
+          const key = `${item.kind}:${item.id}`
+          if (!item.id || !item.label || seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      return [
+        ...normalize(payload.skills, 'skill'),
+        ...normalize(payload.tools, 'tool')
+      ].slice(0, 8)
+    },
+    agentUsageLabel(message) {
+      return this.agentUsageAction(message)?.label || this.text.usedThisTurn
+    },
+    visibleMessageActions(message) {
+      const actions = Array.isArray(message?.actions) ? message.actions : []
+      return actions.filter((action) => action?.type !== 'agent_usage')
+    },
+    mobileActionRoute(action) {
+      const payload = action?.payload || {}
+      const strategyId = payload.strategy_id || payload.strategyId
+      if (strategyId) return { name: 'StrategyDetail', params: { id: strategyId } }
+
+      const indicatorId = payload.indicator_id || payload.indicatorId || payload.asset_id || payload.assetId
+      if (indicatorId) return { name: 'MarketIndicatorDetail', params: { id: indicatorId } }
+
+      const path = String(action?.path || payload.path || '').split('?')[0].replace(/\/+$/, '')
+      const routeMap = {
+        '/strategy-center': { name: 'Trading' },
+        '/portfolio': { name: 'Trading' },
+        '/indicator-community': { name: 'Market' },
+        '/strategy-market': { name: 'Market' },
+        '/broker-accounts': { name: 'CredentialList' },
+        '/billing': { name: 'ProfileCredits' },
+        '/profile': { name: 'Profile' },
+        '/ai-analysis': { name: 'AiAnalysis' }
+      }
+      return routeMap[path] || null
     },
     handleCopilotAction(action) {
+      if (this.isUnsupportedMobileAction(action)) {
+        showToast({ message: this.text.desktopOnly, type: 'fail' })
+        return
+      }
+
+      const route = this.mobileActionRoute(action)
+      if (route) {
+        this.$router.push(route)
+        return
+      }
+
       const type = String(action.type || '').toLowerCase()
       if (type.includes('analysis')) {
         this.runProfessionalAnalysis()
@@ -1083,18 +1267,6 @@ export default {
           timeframe: report.timeframe || this.context.timeframe
         }
       })
-    },
-    generateStrategyFromReport(report) {
-      if (!report) return
-      const symbol = report.symbol || this.context.symbol
-      const timeframe = report.timeframe || this.context.timeframe || '4h'
-      const decision = String(report.decision || '').toUpperCase() || 'HOLD'
-      const locale = this.$i18n?.locale || 'zh-CN'
-      const isZh = locale.startsWith('zh')
-      const prompt = isZh
-        ? `基于 ${symbol} (${timeframe}) 的 AI 分析建议 ${decision}，请生成一个合适的交易机器人参数。分析摘要：${report.summary || ''}`
-        : `Based on the AI analysis of ${symbol} (${timeframe}) suggesting ${decision}, please generate suitable trading bot parameters. Summary: ${report.summary || ''}`
-      this.$router.push({ path: '/trading/create/ai', query: { prompt, symbol } })
     },
     reportMarketLabel(report) {
       return [report?.market, report?.symbol].filter(Boolean).join(':') || this.$t('ai_analysis.title')
@@ -1269,7 +1441,7 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: calc(12px + var(--safe-area-top, 0px)) 18px calc(10px + var(--safe-area-bottom, 0px));
+  padding: calc(12px + var(--safe-area-top, 0px)) var(--page-gutter) calc(10px + var(--safe-area-bottom, 0px));
   color: var(--text);
   background: var(--bg);
 }
@@ -1287,20 +1459,6 @@ export default {
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.nav-menu-btn {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  color: var(--text);
-  background: var(--surface-raised);
-  font-size: 18px;
 }
 
 .top-copy {
@@ -1341,7 +1499,7 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
+  min-height: 44px;
   padding: 0 11px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -1359,7 +1517,8 @@ export default {
 }
 
 .ask-card {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   z-index: 5;
   padding: 8px 9px 9px;
   border-radius: 16px;
@@ -1439,7 +1598,7 @@ export default {
   outline: none;
   background: transparent;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -1477,7 +1636,7 @@ export default {
 
 .task-card {
   min-width: 116px;
-  min-height: 34px;
+  min-height: 44px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -1544,7 +1703,7 @@ export default {
 
 .task-copy strong {
   color: var(--text);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -1638,51 +1797,32 @@ export default {
   min-height: 300px;
   max-height: none;
   overflow-y: auto;
-  padding: 14px 12px calc(92px + var(--safe-area-bottom, 0px));
+  padding: 10px 0 calc(92px + var(--safe-area-bottom, 0px));
   scroll-padding-bottom: calc(92px + var(--safe-area-bottom, 0px));
 }
 
 .message-row {
   display: flex;
-  gap: 9px;
-  margin-bottom: 14px;
+  width: 100%;
+  margin-bottom: 12px;
 }
 
 .message-row.user {
-  flex-direction: row-reverse;
-}
-
-.avatar {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  font-size: 12px;
-}
-
-.message-row.assistant .avatar {
-  color: #d8f4ff;
-  border-color: color-mix(in srgb, #38bdf8 36%, var(--border));
-  background:
-    linear-gradient(135deg, rgba(56, 189, 248, 0.28), rgba(167, 139, 250, 0.18)),
-    var(--surface-raised);
-  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.12);
-}
-
-.ai-avatar-mark {
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: 0;
+  justify-content: flex-end;
 }
 
 .bubble-wrap {
-  max-width: calc(100% - 48px);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.message-row.assistant .bubble-wrap {
+  width: 100%;
+}
+
+.message-row.user .bubble-wrap {
+  width: fit-content;
+  max-width: 94%;
 }
 
 .bubble {
@@ -1922,6 +2062,20 @@ export default {
   line-height: 1.72;
 }
 
+.stream-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 10px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .markdown-body :deep(p) {
   margin: 0 0 10px;
 }
@@ -2097,6 +2251,48 @@ export default {
   font-weight: 800;
 }
 
+.agent-usage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.agent-usage-title,
+.agent-usage-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.agent-usage-title {
+  gap: 5px;
+  color: var(--text-3);
+  font-weight: 700;
+}
+
+.agent-usage-chip {
+  max-width: min(190px, 70vw);
+  padding: 0 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-1);
+  text-overflow: ellipsis;
+}
+
+.agent-usage-chip--tool {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.08);
+}
+
 .pending-attachments {
   display: flex;
   gap: 8px;
@@ -2157,15 +2353,17 @@ export default {
 }
 
 .send-action {
-  min-width: 36px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  min-width: 72px;
+  width: auto;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 13px;
   color: var(--on-accent);
   border: 0;
   background: linear-gradient(135deg, #f2b632 0%, #ff6b35 58%, #e34848 100%);
   box-shadow: 0 8px 18px rgba(255, 107, 53, 0.2);
-  font-size: 15px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
 }
 
 .send-action:disabled {

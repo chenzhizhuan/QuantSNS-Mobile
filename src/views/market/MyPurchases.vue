@@ -38,7 +38,18 @@
             :loading="!!syncingIds[item.purchase_id]"
             @click="syncCode(item)"
           >{{ $t('market.sync_code') }}</van-button>
-          <van-button size="small" type="primary" @click="goCreate(item)">{{ useLabel(item) }}</van-button>
+          <van-button v-if="isStrategyItem(item)" size="small" type="primary" @click="goCreate(item)">
+            {{ $t('market.use_script_template') }}
+          </van-button>
+          <van-button
+            v-else
+            size="small"
+            type="primary"
+            :disabled="!item.local_copy_id"
+            @click="goChart(item)"
+          >
+            {{ $t('indicator_chart.view_chart') }}
+          </van-button>
         </div>
       </div>
     </div>
@@ -56,7 +67,7 @@ import {
   buildCreateRouteFromMarketAsset,
   getAssetLabel,
   getAssetType,
-  getUseLabel
+  isStrategyAsset
 } from '@/utils/marketRoutes'
 
 export default {
@@ -93,12 +104,6 @@ export default {
           label: this.$t('market.asset_script_template'),
           icon: 'description',
           count: countByType(ASSET_TYPES.SCRIPT_TEMPLATE)
-        },
-        {
-          value: ASSET_TYPES.BOT_PRESET,
-          label: this.$t('market.asset_bot_preset'),
-          icon: 'cluster-o',
-          count: countByType(ASSET_TYPES.BOT_PRESET)
         }
       ]
     },
@@ -132,7 +137,19 @@ export default {
     },
     goCreate(item) {
       if (!item.indicator?.id) return
-      this.$router.push(buildCreateRouteFromMarketAsset(item, item.indicator.id))
+      const route = buildCreateRouteFromMarketAsset(item)
+      if (route) this.$router.push(route)
+    },
+    goChart(item) {
+      const indicatorId = Number(item.local_copy_id || 0)
+      if (!indicatorId) {
+        showToast({ message: this.$t('indicator_chart.local_copy_required'), type: 'fail' })
+        return
+      }
+      this.$router.push({
+        name: 'IndicatorChart',
+        query: { indicator_id: indicatorId }
+      })
     },
     async syncCode(item) {
       const id = item.indicator?.id
@@ -172,8 +189,8 @@ export default {
     assetLabelByType(type) {
       return getAssetLabel(type, this.$t)
     },
-    useLabel(item) {
-      return getUseLabel(getAssetType(item), this.$t)
+    isStrategyItem(item) {
+      return isStrategyAsset(item)
     },
     isVipFree(item) {
       return !!item?.indicator?.vip_free
@@ -201,12 +218,12 @@ export default {
 :deep(.van-nav-bar) { background: transparent; }
 :deep(.van-nav-bar .van-nav-bar__title),
 :deep(.van-nav-bar .van-icon) { color: var(--text); }
-.list { padding: 8px 16px; display: flex; flex-direction: column; gap: 12px; }
+.list { padding: 8px var(--page-gutter); display: flex; flex-direction: column; gap: 12px; }
 .library-tabs {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 10px 16px 6px;
+  padding: 10px var(--page-gutter) 6px;
   scrollbar-width: none;
 }
 .library-tabs::-webkit-scrollbar {

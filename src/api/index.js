@@ -3,6 +3,7 @@ import { showToast } from 'vant'
 import { resolveServerUrl } from '@/config'
 import router from '@/router'
 import { useUserStore } from '@/stores'
+import { getLocale, t } from '@/locales'
 
 const http = axios.create({
   timeout: 30000,
@@ -12,7 +13,7 @@ const http = axios.create({
 })
 
 export const getBaseUrl = () => {
-  return resolveServerUrl(localStorage.getItem('serverUrl'))
+  return resolveServerUrl()
 }
 
 const ensureArray = (value) => Array.isArray(value) ? value : []
@@ -41,8 +42,7 @@ const parseNumericMetric = (val) => {
   return { text, num: Number.isFinite(num) ? num : null }
 }
 
-// 事件 → 黄金影响极性：{ bullish: '实际高于预期->利多', bearish: ... }
-// 命中的关键词按从上到下优先级
+// Gold-impact rules are evaluated from top to bottom.
 const GOLD_IMPACT_RULES = [
   { kw: /unemploy|jobless|initial\s*claims|失业|申请失业/, higherIs: 'bullish' },
   { kw: /cpi|inflation|ppi|pce|消费者物价|生产者物价|通胀|通膨/, higherIs: 'bullish' },
@@ -207,18 +207,10 @@ const unwrapItems = (data, key = 'items') => {
 
 const normalizeStrategy = (raw = {}) => {
   const tradingConfig = raw?.trading_config && typeof raw.trading_config === 'object' ? raw.trading_config : {}
-  const indicatorConfig = raw?.indicator_config && typeof raw.indicator_config === 'object' ? raw.indicator_config : {}
   const exchangeConfig = raw?.exchange_config && typeof raw.exchange_config === 'object' ? raw.exchange_config : {}
   const notificationConfig = raw?.notification_config && typeof raw.notification_config === 'object' ? raw.notification_config : {}
 
-  const name = raw.name || raw.strategy_name || raw.group_base_name || (raw.id ? `策略 #${raw.id}` : '未命名策略')
-  const indicatorName = raw.indicator_name ||
-    indicatorConfig.indicator_name ||
-    indicatorConfig.name ||
-    indicatorConfig.display_name ||
-    indicatorConfig.indicator ||
-    tradingConfig.bot_name ||
-    ''
+  const name = raw.strategy_name || (raw.id ? t('trading.strategy_fallback', { id: raw.id }) : '')
 
   const performance = raw.performance && typeof raw.performance === 'object'
     ? raw.performance
@@ -232,30 +224,49 @@ const normalizeStrategy = (raw = {}) => {
   return {
     ...raw,
     name,
-    strategy_name: raw.strategy_name || name,
-    type: raw.type || raw.strategy_type || '',
     symbol: raw.symbol || tradingConfig.symbol || '',
     timeframe: raw.timeframe || tradingConfig.timeframe || '',
-    indicator_name: indicatorName,
-    indicator: {
-      ...(raw.indicator || {}),
-      name: raw?.indicator?.name || indicatorName
-    },
-    trading_config: {
-      ...tradingConfig,
-      symbol: tradingConfig.symbol || raw.symbol || '',
-      timeframe: tradingConfig.timeframe || raw.timeframe || '',
-      initial_capital: tradingConfig.initial_capital || raw.initial_capital || 0,
-      leverage: tradingConfig.leverage || raw.leverage || 1,
-      market_type: tradingConfig.market_type || raw.market_type || ''
-    },
+    initial_capital: raw.initial_capital ?? tradingConfig.initial_capital ?? 0,
+    execution_mode: raw.execution_mode || tradingConfig.execution_mode || 'signal',
+    trading_config: tradingConfig,
     exchange_config: exchangeConfig,
     notification_config: notificationConfig,
     performance
   }
 }
 
-/** 登录/注册等「主动提交凭证」接口的 401 不应整页踢回登录（例如密码错误） */
+const normalizePosition = (raw = {}) => ({
+  ...raw,
+  quantity: Number(raw.quantity ?? raw.qty ?? raw.size ?? raw.amount ?? 0),
+  entry_price: Number(raw.entry_price ?? raw.avg_price ?? 0),
+  current_price: Number(raw.current_price ?? raw.mark_price ?? raw.price ?? 0),
+  unrealized_pnl: Number(raw.unrealized_pnl ?? raw.pnl ?? 0)
+})
+
+const normalizeTrade = (raw = {}) => ({
+  ...raw,
+  side: raw.side || raw.type || '',
+  quantity: Number(raw.quantity ?? raw.qty ?? raw.amount ?? 0),
+  trade_price: Number(raw.trade_price ?? raw.price ?? raw.entry_price ?? 0),
+  pnl: Number(raw.net_pnl ?? raw.profit ?? raw.pnl ?? 0),
+  value: Number(raw.value ?? raw.notional_value ?? 0),
+  commission: Number(raw.total_commission ?? raw.commission ?? 0)
+})
+
+const localizedApiMessage = (message, fallbackKey = 'api_errors.request_failed') => {
+  const value = String(message || '').trim()
+  if (value) {
+    if (/^no data found[.!]?$/i.test(value)) return t('api_errors.no_data')
+    if (value.includes('.')) {
+      const translated = t(value)
+      if (translated && translated !== value) return translated
+    }
+    return value
+  }
+  return t(fallbackKey)
+}
+
+/** Credential submission failures must not redirect the whole app. */
 const isAuthCredentialRequest = (url) =>
   /\/api\/auth\/(login|login-code|register|send-code|reset-password|mfa\/verify-login)(?:\?|$)/i.test(String(url || ''))
 
@@ -268,7 +279,7 @@ function clearAuthSession() {
   }
 }
 
-/** 会话失效：清状态并回登录（已在登录页则只清状态） */
+/** Clear an expired session and return to login when needed. */
 function redirectToLoginIfNeeded(requestUrl) {
   if (isAuthCredentialRequest(requestUrl)) {
     clearAuthSession()
@@ -277,14 +288,14 @@ function redirectToLoginIfNeeded(requestUrl) {
   clearAuthSession()
   try {
     if (router.currentRoute.value.path === '/login') return
-    const full = router.currentRoute.value.fullPath || '/home'
+    const full = router.currentRoute.value.fullPath || '/ai'
     router.replace({ path: '/login', query: { redirect: full } })
   } catch (_) {
-    /* router 未就绪时忽略 */
+    // The router may not be ready during app bootstrap.
   }
 }
 
-/** HTTP 200 但业务体表示需重新登录 */
+/** Detect session-expiry envelopes returned with HTTP 200. */
 function isSessionExpiredBusinessResponse(res) {
   if (!res || typeof res !== 'object') return false
   const code = res.code
@@ -306,6 +317,9 @@ http.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    const locale = getLocale()
+    config.headers['Accept-Language'] = locale
+    config.headers['X-App-Lang'] = locale
     return config
   },
   (error) => Promise.reject(error)
@@ -327,39 +341,47 @@ http.interceptors.response.use(
     if (isSessionExpiredBusinessResponse(res) && !isAuthCredentialRequest(reqUrl)) {
       redirectToLoginIfNeeded(reqUrl)
     }
-    showToast({
-      message: res?.msg || res?.message || '请求失败',
-      type: 'fail'
-    })
-    return Promise.reject(new Error(res?.msg || res?.message || '请求失败'))
+    const message = localizedApiMessage(res?.msg || res?.message)
+    showToast({ message, type: 'fail' })
+    const error = new Error(message)
+    error.backendMessage = res?.msg || res?.message || ''
+    return Promise.reject(error)
   },
   (error) => {
-    let message = '网络错误'
+    let message = t('api_errors.network_error')
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          message = '未授权，请重新登录'
-          redirectToLoginIfNeeded(error.config?.url)
+          if (isAuthCredentialRequest(error.config?.url)) {
+            message = localizedApiMessage(error.response.data?.message || error.response.data?.msg)
+          } else {
+            message = t('api_errors.unauthorized')
+            redirectToLoginIfNeeded(error.config?.url)
+          }
           break
         case 403:
-          message = '拒绝访问'
+          message = t('api_errors.forbidden')
           break
         case 404:
-          message = '请求地址不存在'
+          message = t('api_errors.not_found')
           break
         case 500:
-          message = '服务器错误'
+          message = localizedApiMessage(
+            error.response.data?.message || error.response.data?.msg,
+            'api_errors.server_error'
+          )
           break
         default:
-          message = error.response.data?.message || error.response.data?.msg || '请求失败'
+          message = localizedApiMessage(error.response.data?.message || error.response.data?.msg)
       }
     } else if (error.message?.includes('timeout')) {
-      message = '请求超时'
+      message = t('api_errors.timeout')
     } else if (error.message?.includes('Network Error')) {
-      message = '网络连接失败，请检查服务器地址'
+      message = t('api_errors.connection_failed')
     }
 
     showToast({ message, type: 'fail' })
+    error.localizedMessage = message
     return Promise.reject(error)
   }
 )
@@ -371,27 +393,11 @@ export const authApi = {
   register: (data) => http.post('/api/auth/register', data),
   sendCode: (data) => http.post('/api/auth/send-code', data),
   resetPassword: (data) => http.post('/api/auth/reset-password', data),
+  issueTurnstileClearance: (data) => http.post('/api/auth/turnstile-clearance', data),
   getSecurityConfig: () => http.get('/api/auth/security-config'),
   getInfo: () => http.get('/api/auth/info'),
   logout: () => http.post('/api/auth/logout'),
   changePassword: (data) => http.post('/api/auth/change-password', data)
-}
-
-export const dashboardApi = {
-  getSummary: async () => {
-    const res = await http.get('/api/dashboard/summary')
-    return {
-      ...res,
-      data: res.data || {}
-    }
-  },
-  getPendingOrders: async (params = {}) => {
-    const res = await http.get('/api/dashboard/pendingOrders', { params })
-    return {
-      ...res,
-      data: res.data || { items: [], total: 0 }
-    }
-  }
 }
 
 export const credentialsApi = {
@@ -412,6 +418,8 @@ export const credentialsApi = {
     }
   },
   create: (data) => http.post('/api/credentials/create', data),
+  test: (data) => http.post('/api/credentials/test', data),
+  updateName: (id, name) => http.put('/api/credentials/update-name', { id, name }),
   delete: (id) => http.delete('/api/credentials/delete', {
     params: { id }
   }),
@@ -424,120 +432,10 @@ export const credentialsApi = {
   }
 }
 
-export const strategyApi = {
-  getTemplates: async (params = {}) => {
-    const res = await http.get('/api/templates', { params })
-    return {
-      ...res,
-      data: ensureArray(res.data)
-    }
-  },
-  getTemplate: async (key) => {
-    const res = await http.get(`/api/templates/${key}`)
-    return {
-      ...res,
-      data: res.data || null
-    }
-  },
-  create: (payload) => http.post('/api/strategies/create', payload),
-  batchCreate: (payload) => http.post('/api/strategies/batch-create', payload),
-  update: (id, payload) => http.put('/api/strategies/update', { id, ...payload }),
-  delete: (id) => http.delete('/api/strategies/delete', { params: { id } }),
-  aiGenerate: (payload) => http.post('/api/strategies/ai-generate', payload, { raw: true, timeout: 180000 }),
-  getList: async () => {
-    const res = await http.get('/api/strategies')
-    return {
-      ...res,
-      data: ensureArray(res.data?.strategies).map(normalizeStrategy)
-    }
-  },
-  getDetail: async (id) => {
-    const res = await http.get('/api/strategies/detail', {
-      params: { id }
-    })
-    return {
-      ...res,
-      data: res.data ? normalizeStrategy(res.data) : null
-    }
-  },
-  start: (id) => http.post('/api/strategies/start', null, {
-    params: { id }
-  }),
-  stop: (id) => http.post('/api/strategies/stop', null, {
-    params: { id }
-  }),
-  getTrades: async (id, limit = 50) => {
-    const res = await http.get('/api/strategies/trades', {
-      params: { id, limit }
-    })
-    return {
-      ...res,
-      data: unwrapItems(res.data, 'trades')
-    }
-  },
-  getPositions: async (id) => {
-    const res = await http.get('/api/strategies/positions', {
-      params: { id }
-    })
-    return {
-      ...res,
-      data: unwrapItems(res.data, 'positions')
-    }
-  },
-  getEquityCurve: async (id) => {
-    const res = await http.get('/api/strategies/equityCurve', {
-      params: { id }
-    })
-    return {
-      ...res,
-      data: ensureArray(res.data)
-    }
-  },
-  getPerformance: async (id) => {
-    const res = await http.get('/api/strategies/performance', {
-      params: { id }
-    })
-    return {
-      ...res,
-      data: res.data || {}
-    }
-  },
-  getLogs: async (id, limit = 100) => {
-    const res = await http.get('/api/strategies/logs', {
-      params: { id, limit }
-    })
-    return {
-      ...res,
-      data: unwrapItems(res.data, 'logs')
-    }
-  },
-  testConnection: (data) => http.post('/api/strategies/test-connection', data),
-  getNotifications: async (params = {}) => {
-    const res = await http.get('/api/strategies/notifications', { params })
-    return {
-      ...res,
-      data: unwrapItems(res.data)
-    }
-  },
-  getUnreadNotificationCount: async () => {
-    const res = await http.get('/api/strategies/notifications/unread-count')
-    return {
-      ...res,
-      data: res.data?.unread || 0
-    }
-  },
-  markNotificationRead: (id) => http.post('/api/strategies/notifications/read', { id }),
-  markAllNotificationsRead: () => http.post('/api/strategies/notifications/read-all'),
-  clearNotifications: () => http.delete('/api/strategies/notifications/clear')
-}
-
 export const quickTradeApi = {
   getBalance: async (credentialId, marketType = 'swap') => {
     const res = await http.get('/api/quick-trade/balance', {
-      params: {
-        credential_id: credentialId,
-        market_type: marketType
-      }
+      params: { credential_id: credentialId, market_type: marketType }
     })
     return {
       ...res,
@@ -566,6 +464,126 @@ export const quickTradeApi = {
       data: unwrapItems(res.data, 'trades')
     }
   }
+}
+
+export const strategyApi = {
+  getTemplates: async (params = {}) => {
+    const res = await http.get('/api/templates', { params })
+    return {
+      ...res,
+      data: ensureArray(res.data)
+    }
+  },
+  getTemplate: async (key) => {
+    const res = await http.get(`/api/templates/${key}`)
+    return {
+      ...res,
+      data: res.data || null
+    }
+  },
+  create: (payload) => http.post('/api/strategies', payload),
+  update: (id, payload) => http.put(`/api/strategies/${id}`, payload),
+  delete: (id) => http.delete(`/api/strategies/${id}`),
+  getList: async () => {
+    const res = await http.get('/api/strategies')
+    return {
+      ...res,
+      data: ensureArray(res.data).map(normalizeStrategy)
+    }
+  },
+  getDetail: async (id) => {
+    const res = await http.get(`/api/strategies/${id}`)
+    return {
+      ...res,
+      data: res.data ? normalizeStrategy(res.data) : null
+    }
+  },
+  start: (id) => http.post(`/api/strategies/${id}/start`),
+  stop: (id, closePositions = false) => http.post(`/api/strategies/${id}/stop`, {
+    close_positions: Boolean(closePositions)
+  }),
+  getTrades: async (id, limit = 50) => {
+    const res = await http.get('/api/strategies/trades', {
+      params: { id, limit }
+    })
+    return {
+      ...res,
+      data: unwrapItems(res.data, 'trades').map(normalizeTrade)
+    }
+  },
+  getPositions: async (id) => {
+    const res = await http.get('/api/strategies/positions', {
+      params: { id }
+    })
+    return {
+      ...res,
+      data: unwrapItems(res.data, 'positions').map(normalizePosition)
+    }
+  },
+  getPositionOwnership: async (id) => {
+    const res = await http.get('/api/strategies/position-ownership', {
+      params: { id }
+    })
+    return {
+      ...res,
+      data: res.data || { items: [], status: 'ok' }
+    }
+  },
+  getGridRestingOrders: async (id, sync = false) => {
+    const res = await http.get('/api/strategies/grid-resting-orders', {
+      params: { id, sync: sync ? '1' : undefined }
+    })
+    return {
+      ...res,
+      data: res.data || { items: [], orders: [], summary: {} }
+    }
+  },
+  repairPositionOwnership: (payload) => http.post('/api/strategies/position-ownership/repair', payload),
+  getEquityCurve: async (id) => {
+    const res = await http.get('/api/strategies/equityCurve', {
+      params: { id }
+    })
+    return {
+      ...res,
+      data: ensureArray(res.data)
+    }
+  },
+  getPerformance: async (id) => {
+    const res = await http.get('/api/strategies/performance', {
+      params: { id }
+    })
+    return {
+      ...res,
+      data: res.data || {}
+    }
+  },
+  getLogs: async (id, limit = 100) => {
+    const res = await http.get('/api/strategies/logs', {
+      params: { id, limit }
+    })
+    return {
+      ...res,
+      data: unwrapItems(res.data, 'logs')
+    }
+  },
+  testConnection: (data) => http.post('/api/strategies/exchange/test', data),
+  getNotifications: async (params = {}) => {
+    const res = await http.get('/api/strategies/notifications', { params })
+    return {
+      ...res,
+      data: unwrapItems(res.data)
+    }
+  },
+  getUnreadNotificationCount: async () => {
+    const res = await http.get('/api/strategies/notifications/unread-count')
+    return {
+      ...res,
+      data: res.data?.unread || 0
+    }
+  },
+  markNotificationRead: (id) => http.post('/api/strategies/notifications/read', { id }),
+  markAllNotificationsRead: () => http.post('/api/strategies/notifications/read-all'),
+  clearNotifications: () => http.delete('/api/strategies/notifications/clear')
 }
 
 export const aiAnalysisApi = {
@@ -622,6 +640,13 @@ export const scriptSourceApi = {
     return {
       ...res,
       data: res.data || null
+    }
+  },
+  compile: async (sourceId) => {
+    const res = await http.post('/api/strategies/script-sources/compile', { sourceId })
+    return {
+      ...res,
+      data: res.data?.manifest || null
     }
   }
 }
@@ -683,15 +708,13 @@ export const watchlistApi = {
     return {
       ...res,
       data: ensureArray(res.data).map((item) => ({
-        id: item.id,
-        market: item.market,
-        symbol: item.symbol,
+        ...item,
         name: item.name || item.symbol
       }))
     }
   },
   add: (payload) => http.post('/api/market/watchlist/add', payload),
-  remove: (symbol) => http.post('/api/market/watchlist/remove', { symbol }),
+  remove: (item) => http.post('/api/market/watchlist/remove', typeof item === 'string' ? { symbol: item } : item),
   search: async (params) => {
     const res = await http.get('/api/market/symbols/search', { params })
     return {
@@ -718,26 +741,43 @@ export const watchlistApi = {
 }
 
 export const klineApi = {
-  getKline: async ({ market = 'Crypto', symbol, timeframe = '1h', limit = 200, beforeTime } = {}) => {
+  getKline: async ({
+    market = 'Crypto',
+    symbol,
+    timeframe = '1h',
+    limit = 200,
+    beforeTime,
+    exchangeId,
+    marketType,
+    instrumentId
+  } = {}) => {
     const params = { market, symbol, timeframe, limit }
     if (beforeTime) params.before_time = beforeTime
+    if (exchangeId) params.exchange_id = exchangeId
+    if (marketType) params.market_type = marketType
+    if (instrumentId) params.instrument_id = instrumentId
     const res = await http.get('/api/indicator/kline', { params })
     return {
       ...res,
       data: ensureArray(res.data)
     }
   },
-  getPrice: async ({ market = 'Crypto', symbol } = {}) => {
-    const res = await http.get('/api/market/price', { params: { market, symbol } })
+  getPrice: async ({ market = 'Crypto', symbol, exchangeId, marketType, instrumentId } = {}) => {
+    const params = { market, symbol }
+    if (exchangeId) params.exchange_id = exchangeId
+    if (marketType) params.market_type = marketType
+    if (instrumentId) params.instrument_id = instrumentId
+    const res = await http.get('/api/market/price', { params })
     return {
       ...res,
       data: res.data || null
     }
-  }
+  },
+  getTicker: (symbol, market = 'Crypto') => klineApi.getPrice({ market, symbol })
 }
 
 export const aiChatApi = {
-  sendMessage: (payload) => http.post('/api/ai/chat/message', payload, { timeout: 180000 }),
+  sendMessage: (payload) => http.post('/api/ai/chat/message', payload, { timeout: 600000 }),
   streamMessage: async (payload, onEvent) => {
     const language = payload?.language || 'zh-CN'
     const headers = {
@@ -766,6 +806,7 @@ export const aiChatApi = {
     const reader = response.body.getReader()
     const decoder = new TextDecoder('utf-8')
     let buffer = ''
+    let streamComplete = false
     const handlePart = async (part) => {
       const lines = String(part || '').split(/\r?\n/)
       let event = 'message'
@@ -780,19 +821,41 @@ export const aiChatApi = {
         data = JSON.parse(data)
       } catch (_) {}
       if (typeof onEvent === 'function') await onEvent(event, data)
+      return event
     }
 
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const parts = buffer.split(/\r?\n\r?\n/)
-      buffer = parts.pop() || ''
-      for (const part of parts) {
-        await handlePart(part)
+    try {
+      while (!streamComplete) {
+        const { value, done } = await reader.read()
+        if (done) {
+          buffer += decoder.decode()
+          break
+        }
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split(/\r?\n\r?\n/)
+        buffer = parts.pop() || ''
+        for (const part of parts) {
+          if (await handlePart(part) === 'done') {
+            streamComplete = true
+            break
+          }
+        }
+        if (streamComplete) {
+          try {
+            await reader.cancel()
+          } catch (_) {}
+        }
       }
+      if (!streamComplete && buffer.trim()) {
+        streamComplete = await handlePart(buffer) === 'done'
+      }
+    } catch (error) {
+      try {
+        await reader.cancel()
+      } catch (_) {}
+      throw error
     }
-    if (buffer.trim()) await handlePart(buffer)
+    return { completed: streamComplete }
   },
   saveLocalMessage: (payload) => http.post('/api/ai/chat/message/local', payload),
   getSessions: async (params = {}) => {
@@ -831,11 +894,11 @@ export const indicatorApi = {
       data: Array.isArray(res.data) ? res.data : (res.data?.params || [])
     }
   },
-  parseStrategyConfig: async (code) => {
-    const res = await http.post('/api/indicator/parseStrategyConfig', { code: code || '' })
+  previewChart: async (payload) => {
+    const res = await http.post('/api/indicator/chart-preview', payload, { timeout: 45000 })
     return {
       ...res,
-      data: res.data || { strategyConfig: {}, indicatorParams: [] }
+      data: res.data || null
     }
   }
 }

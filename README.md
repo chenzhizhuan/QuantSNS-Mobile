@@ -6,7 +6,7 @@
   <a href="banner.png" title="Open full banner"><img src="banner.png" alt="QuantDinger Mobile app preview" width="720" /></a>
 </p>
 
-**QuantDinger Mobile** is the mobile and H5 client for [QuantDinger](https://github.com/brokermr810/QuantDinger), an open-source **AI Trading OS** by **Open Byte Inc**. It gives users a touch-friendly way to check markets, AI analysis, strategies, bots, quick trading, account settings, and exchange API workflows from a phone.
+**QuantDinger Mobile** is the mobile and H5 client for [QuantDinger](https://github.com/OpenByteInc/QuantDinger), an open-source **AI Trading OS** by **Open Byte Inc**. It gives users a touch-friendly way to check markets, AI analysis, strategies, bots, quick trading, account settings, and exchange API workflows from a phone.
 
 The same Vue 3 app can be deployed as:
 
@@ -21,13 +21,13 @@ Most users should deploy mobile together with the main QuantDinger stack. The ma
 Linux or macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.ps1 | iex
 ```
 
 Default URLs in the full stack:
@@ -45,7 +45,7 @@ When opening from a phone on the same LAN, use the host machine's LAN IP, for ex
 The mobile image is published as:
 
 ```text
-ghcr.io/brokermr810/quantdinger-mobile
+ghcr.io/openbyteinc/quantdinger-mobile
 ```
 
 Common tags are `latest`, semantic versions, and major/minor tags. In the main repo `.env`, use `IMAGE_TAG` to pin the whole stack or `MOBILE_TAG` to pin only the mobile service.
@@ -56,7 +56,7 @@ Run the image by itself when the backend already exists:
 docker run -d --name quantdinger-mobile \
   -p 8889:80 \
   -e BACKEND_URL=http://host.docker.internal:5000 \
-  ghcr.io/brokermr810/quantdinger-mobile:latest
+  ghcr.io/openbyteinc/quantdinger-mobile:latest
 ```
 
 `BACKEND_URL` controls the container's Nginx `/api/` proxy. In the main Compose stack it normally stays as `http://backend:5000`.
@@ -75,7 +75,7 @@ docker run -d --name quantdinger-mobile \
 ### Start H5 development
 
 ```bash
-git clone https://github.com/brokermr810/QuantDinger-Mobile.git
+git clone https://github.com/OpenByteInc/QuantDinger-Mobile.git
 cd QuantDinger-Mobile
 npm install
 npm run dev
@@ -112,11 +112,11 @@ Mobile and H5 deployments should usually call the backend through a same-origin 
 | `npm run dev` | Set `VITE_DEV_API_TARGET` if the backend is not on `http://localhost:5000`. |
 | Static H5 hosting | Serve `dist/` and configure your web server to proxy `/api/` to the backend. |
 | Android / iOS shell | Use a backend URL that the phone can actually reach, such as `https://api.example.com` or a LAN IP during testing. |
-| Preselect a default server URL | Build with `VITE_DEFAULT_SERVER_URL=https://api.example.com`; users can still override it in app settings. |
+| Preselect a native-app server URL | Build with `VITE_DEFAULT_SERVER_URL=https://api.example.com`; official native builds fall back to `https://api.quantdinger.com`. |
 
-For a packaged APK/IPA, the default backend URL is baked in at build time. Users may still change it later in **Profile → Server settings**, but if you are distributing your own APK, set your own default URL before building.
+For a packaged APK/IPA, the default backend URL is baked in at build time. If you distribute your own app, set the URL through the build command or your local `.env.local`; do not commit a private endpoint in a production env file.
 
-Create or edit `.env.production`:
+For example, create or edit `.env.local` on the build machine:
 
 ```env
 VITE_DEFAULT_SERVER_URL=https://api.example.com
@@ -125,6 +125,7 @@ VITE_PUBLIC_WEB_BASE_URL=https://m.example.com
 
 Notes:
 
+- The repository does not ship a hard-coded `.env.production`. Prebuilt H5 and Docker images therefore use same-origin `/api/` and continue to honor `BACKEND_URL`.
 - `VITE_DEFAULT_SERVER_URL` must be reachable from the phone, not only from your computer.
 - Use HTTPS for public deployments. Some Android devices or networks may block insecure HTTP requests.
 - Do not use `localhost` or `127.0.0.1` in an APK unless the backend is running on the phone itself.
@@ -259,8 +260,8 @@ QuantDinger-Mobile/
 
 | Repository | Role |
 |------------|------|
-| [QuantDinger](https://github.com/brokermr810/QuantDinger) | Backend API, Docker Compose, database services, deployment docs |
-| [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) | Desktop web frontend |
+| [QuantDinger](https://github.com/OpenByteInc/QuantDinger) | Backend API, Docker Compose, database services, deployment docs |
+| [QuantDinger-Vue](https://github.com/OpenByteInc/QuantDinger-Vue) | Desktop web frontend |
 | **QuantDinger-Mobile** | This repository: mobile and H5 frontend |
 
 ## License

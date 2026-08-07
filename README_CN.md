@@ -6,7 +6,7 @@
   <a href="banner.png" title="查看完整海报"><img src="banner.png" alt="QuantDinger 手机端预览" width="720" /></a>
 </p>
 
-**QuantDinger Mobile** 是 [QuantDinger](https://github.com/brokermr810/QuantDinger) 的手机端和 H5 客户端。QuantDinger 是 **Open Byte Inc** 推出的开源 **AI Trading OS**，面向自动化交易、AI 分析、策略工作流和账户运营。
+**QuantDinger Mobile** 是 [QuantDinger](https://github.com/OpenByteInc/QuantDinger) 的手机端和 H5 客户端。QuantDinger 是 **Open Byte Inc** 推出的开源 **AI Trading OS**，面向自动化交易、AI 分析、策略工作流和账户运营。
 
 手机端主要服务于随身查看和轻量操作：查看行情与 AI 分析、管理策略和交易机器人、进行闪电交易、调整账户设置、维护交易所 API 等。它不是另一套独立系统，而是同一套后端之上的移动界面。
 
@@ -23,13 +23,13 @@
 Linux 或 macOS：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.ps1 | iex
 ```
 
 完整部署后的默认地址：
@@ -51,7 +51,7 @@ http://192.168.1.10:8889
 手机端镜像地址：
 
 ```text
-ghcr.io/brokermr810/quantdinger-mobile
+ghcr.io/openbyteinc/quantdinger-mobile
 ```
 
 常用标签包括 `latest`、具体语义化版本，以及 `4.0` 这样的主次版本标签。在主仓库 `.env` 中可以用 `IMAGE_TAG` 固定整套系统版本，也可以用 `MOBILE_TAG` 单独固定手机端版本。
@@ -62,7 +62,7 @@ ghcr.io/brokermr810/quantdinger-mobile
 docker run -d --name quantdinger-mobile \
   -p 8889:80 \
   -e BACKEND_URL=http://host.docker.internal:5000 \
-  ghcr.io/brokermr810/quantdinger-mobile:latest
+  ghcr.io/openbyteinc/quantdinger-mobile:latest
 ```
 
 `BACKEND_URL` 控制容器内 Nginx 的 `/api/` 反向代理目标。主仓库 Compose 里通常保持为 `http://backend:5000`。
@@ -81,7 +81,7 @@ docker run -d --name quantdinger-mobile \
 ### 启动 H5 开发服务
 
 ```bash
-git clone https://github.com/brokermr810/QuantDinger-Mobile.git
+git clone https://github.com/OpenByteInc/QuantDinger-Mobile.git
 cd QuantDinger-Mobile
 npm install
 npm run dev
@@ -118,11 +118,11 @@ VITE_DEV_API_TARGET=http://127.0.0.1:5000 npm run dev
 | `npm run dev` 本地开发 | 如果后端不在 `http://localhost:5000`，设置 `VITE_DEV_API_TARGET`。 |
 | 自己部署静态 H5 | 发布 `dist/`，并在 Web 服务器上把 `/api/` 反代到 QuantDinger 后端。 |
 | Android / iOS 原生壳 | 填手机能访问到的后端地址，例如公网 `https://api.example.com`，或测试时的局域网 IP。 |
-| 想给新安装用户预设默认地址 | 构建时设置 `VITE_DEFAULT_SERVER_URL=https://api.example.com`，用户仍可在应用内覆盖。 |
+| 想给原生安装包预设默认地址 | 构建时设置 `VITE_DEFAULT_SERVER_URL=https://api.example.com`；未设置时官方安装包默认使用 `https://api.quantdinger.com`。 |
 
-APK / IPA 里的默认后端地址是在打包时写进去的。用户安装后仍然可以在 **个人中心 → 服务器设置** 里手动修改，但如果你要把安装包发给别人，建议打包前先把默认地址改成你自己的服务器。
+APK / IPA 里的默认后端地址是在打包时写进去的。如果你要分发自己的安装包，请在构建命令或自己的 `.env.local` 中配置服务器地址；不要把私有地址提交到仓库的生产环境文件。
 
-创建或修改 `.env.production`：
+例如在本机创建或修改 `.env.local`：
 
 ```env
 VITE_DEFAULT_SERVER_URL=https://api.example.com
@@ -131,6 +131,7 @@ VITE_PUBLIC_WEB_BASE_URL=https://m.example.com
 
 注意：
 
+- 仓库不提供硬编码的 `.env.production`，因此预构建 H5 和 Docker 镜像默认走同源 `/api/`，不会绕过 `BACKEND_URL`。
 - `VITE_DEFAULT_SERVER_URL` 必须是手机能访问到的地址，不能只在你的电脑上能访问。
 - 公网部署建议使用 HTTPS。部分 Android 设备或网络环境会限制不安全的 HTTP 请求。
 - APK 里不要填 `localhost` 或 `127.0.0.1`，手机上的 `localhost` 指的是手机自己，不是你的电脑或服务器。
@@ -265,8 +266,8 @@ QuantDinger-Mobile/
 
 | 仓库 | 作用 |
 |------|------|
-| [QuantDinger](https://github.com/brokermr810/QuantDinger) | 后端 API、Docker Compose、数据库服务和部署文档 |
-| [QuantDinger-Vue](https://github.com/brokermr810/QuantDinger-Vue) | 桌面端 Web 前端 |
+| [QuantDinger](https://github.com/OpenByteInc/QuantDinger) | 后端 API、Docker Compose、数据库服务和部署文档 |
+| [QuantDinger-Vue](https://github.com/OpenByteInc/QuantDinger-Vue) | 桌面端 Web 前端 |
 | **QuantDinger-Mobile** | 本仓库：手机端和 H5 前端 |
 
 ## 许可协议
