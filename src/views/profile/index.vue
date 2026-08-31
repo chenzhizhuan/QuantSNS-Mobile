@@ -80,6 +80,11 @@
     <div class="menu-section">
       <span class="menu-section-title">{{ $t('profile.section_account') }}</span>
       <div class="menu-group">
+        <div class="menu-item" @click="$router.push('/profile/credentials')">
+          <div class="menu-icon c-blue"><van-icon name="certificate" /></div>
+          <span class="label">{{ $t('profile.credentials') }}</span>
+          <van-icon name="arrow" class="arrow" />
+        </div>
         <div class="menu-item" @click="$router.push('/profile/referral')">
           <div class="menu-icon c-green"><van-icon name="friends-o" /></div>
           <span class="label">{{ $t('profile.referral') }}</span>

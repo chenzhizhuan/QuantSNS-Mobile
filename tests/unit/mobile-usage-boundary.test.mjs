@@ -81,7 +81,11 @@ test('live account and stop controls preserve explicit safety boundaries', () =>
   assert.match(api, /close_positions: Boolean\(closePositions\)/)
   assert.match(credentialForm, /testConnection\(\)/)
   assert.match(credentialForm, /credentialsApi\.test\(this\.credentialPayload\(\)\)/)
+  assert.match(credentialForm, /credentialsApi\.getEgressIp\(\)/)
+  assert.ok(credentialForm.indexOf('account-card') < credentialForm.indexOf('egress-card'))
+  assert.ok(credentialForm.indexOf('egress-card') < credentialForm.indexOf('key-card'))
   assert.match(credentialList, /credentialsApi\.updateName\(id, name\)/)
+  assert.doesNotMatch(credentialList, /credentialsApi\.getEgressIp\(\)/)
   assert.doesNotMatch(credentialList, /credentialsApi\.get\(/)
   assert.match(strategyDetail, /confirmStop\(Boolean\(action\?\.closePositions\)\)/)
   assert.match(strategyList, /confirmStopStrategy\(strategy, Boolean\(action\?\.closePositions\)\)/)
@@ -213,6 +217,14 @@ test('signal and live configuration expose only relevant fields', () => {
   assert.match(createStrategy, /activeNotificationChannels\.length/)
   assert.match(createStrategy, /profile\/notification-settings/)
   assert.match(createStrategy, /notification_channel_required/)
+  assert.match(createStrategy, /manifestDirectionMode\(\)/)
+  assert.match(createStrategy, /name="long_only"/)
+  assert.match(createStrategy, /name="short_only"/)
+  assert.match(createStrategy, /name="both"/)
+  assert.match(createStrategy, /name="neutral"/)
+  assert.match(createStrategy, /directionMode: this\.requiresDirectionMode \? this\.effectiveDirectionMode/)
+  assert.match(createStrategy, /positionSide: this\.requiresDirectionMode \? directionModePositionSide/)
+  assert.doesNotMatch(createStrategy, /v-model="form\.positionSide"/)
   assert.match(createStrategy, /formValid\(\)/)
   assert.match(createStrategy, /if \(!this\.activeNotificationChannels\.length\) return false/)
   assert.match(createStrategy, /:disabled="!formValid"/)
@@ -222,6 +234,7 @@ test('signal and live configuration expose only relevant fields', () => {
 test('market, chart, and accounts provide a complete mobile path', () => {
   const market = read('src/views/market/index.vue')
   const chart = read('src/views/indicator/Chart.vue')
+  const profile = read('src/views/profile/index.vue')
   const credentials = read('src/views/profile/Credentials.vue')
 
   assert.match(market, /emptyStateTitle/)
@@ -231,7 +244,9 @@ test('market, chart, and accounts provide a complete mobile path', () => {
   assert.match(chart, /timeTicks\(\)/)
   assert.match(chart, /latestSignalLabel/)
   assert.match(chart, /ChartTradePanel/)
-  assert.ok(credentials.indexOf('primary-list') < credentials.indexOf('Egress IP card'))
+  assert.match(profile, /\$router\.push\('\/profile\/credentials'\)/)
+  assert.match(profile, /profile\.credentials/)
+  assert.match(profile, /name="certificate"/)
   assert.match(credentials, /credentialHealthLabel/)
 })
 
@@ -256,6 +271,37 @@ test('AI composer stays at the bottom and uses a text send action', () => {
   assert.match(aiHub, /error\.streamAccepted = streamAccepted[\s\S]*if \(error\?\.streamAccepted \|\| error\?\.streamHasContent\)[\s\S]*return/)
   assert.match(aiHub, /event === 'replace'[\s\S]*content: text/)
   assert.match(aiHub, /event === 'warning'[\s\S]*streamWarning/)
+})
+
+test('mobile overlays and AI message actions stay above the persistent tab bar', () => {
+  const aiHub = read('src/views/ai-hub/index.vue')
+  const market = read('src/views/market/index.vue')
+
+  assert.match(market, /showStrategyFilters[\s\S]*class="strategy-filter-popup"[\s\S]*teleport="body"/)
+  assert.match(market, /\.strategy-filter-popup\s*\{[\s\S]*overflow-y: auto;/)
+  assert.match(aiHub, /\.chat-panel\s*\{\s*flex: 1 1 0;\s*min-height: 0;/)
+  assert.match(aiHub, /\.message-list\s*\{\s*height: 100%;\s*min-height: 0;/)
+  assert.doesNotMatch(aiHub, /height: calc\(100vh - 220px/)
+})
+
+test('AI Copilot aligns desktop and mobile research controls without duplicate quick tools', () => {
+  const aiHub = read('src/views/ai-hub/index.vue')
+  const api = read('src/api/index.js')
+
+  assert.doesNotMatch(aiHub, /showQuickTools|quick-task-grid|tools-inline-btn|text\.quickTools/)
+  assert.match(aiHub, /class="research-preset-row"/)
+  assert.match(aiHub, /presetMarket:[\s\S]*presetDiagnosis:[\s\S]*presetTechnical:[\s\S]*presetPlan:[\s\S]*presetNews:[\s\S]*presetMacro:/)
+  assert.match(aiHub, /selectResearchPreset\(preset\)/)
+  assert.match(aiHub, /class="professional-report-chip"[\s\S]*@click="confirmProfessionalAnalysis"/)
+  assert.match(aiHub, /class="memory-status-chip"[\s\S]*@click="openMemoryPanel"/)
+  assert.match(aiHub, /referenced_report_id: referencedReportId \|\| null/)
+  assert.match(aiHub, /context_usage \|\| data\?\.contextUsage/)
+  assert.match(aiHub, /reportRiskReward\(msg\.report\)/)
+  assert.match(aiHub, /reportHasRrWarning\(msg\.report\)/)
+  assert.doesNotMatch(aiHub, /copilot_recent_messages|user_memories/)
+  assert.match(api, /getSessionMemory: \(sessionId\) => http\.get\(`\/api\/ai\/chat\/sessions\/\$\{sessionId\}\/memory`\)/)
+  assert.match(api, /clearSessionMemory: \(sessionId\) => http\.delete\(`\/api\/ai\/chat\/sessions\/\$\{sessionId\}\/memory`\)/)
+  assert.match(api, /getUserMemory:[\s\S]*\/api\/ai\/memory/)
 })
 
 test('signal chart supports mobile history navigation and candle inspection', () => {
