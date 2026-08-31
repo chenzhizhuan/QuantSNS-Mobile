@@ -1,6 +1,6 @@
 export default {
   common: {
-    app_name: 'QuantDinger',
+    app_name: 'QuantSNS',
     confirm: 'Confirm',
     cancel: 'Cancel',
     save: 'Save',
@@ -966,7 +966,7 @@ export default {
   about: {
     title: 'About',
     intro:
-      'QuantDinger is an AI-assisted trading system for market research and automated execution, covering market analysis, strategy management, trade execution, and asset tracking. Its outputs are for research and decision support only and do not constitute investment advice. Markets involve risk; use the product with care and your own judgment.',
+      'QuantSNS is an AI-assisted trading system for market research and automated execution, covering market analysis, strategy management, trade execution, and asset tracking. Its outputs are for research and decision support only and do not constitute investment advice. Markets involve risk; use the product with care and your own judgment.',
     contact_title: 'Contact',
     contact_email_label: 'Support email',
     website_label: 'Official website',
@@ -1262,7 +1262,7 @@ export default {
     tutorial_4: 'Only enable needed permissions (recommend: Read + Spot/Futures Trade).',
     tutorial_5: 'Save, then return here to fill in your API Key and Secret.',
     signup_title: 'One-click Sign-up',
-    signup_promo: 'Register via QuantDinger partner links to enjoy up to 20% commission rebate',
+    signup_promo: 'Register via QuantSNS partner links to enjoy up to 20% commission rebate',
     rebate: 'Rebate partner',
     list_title: 'My API Keys',
     list_desc: '{count} credential(s) saved',

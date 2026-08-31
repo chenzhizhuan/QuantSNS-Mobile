@@ -1,6 +1,6 @@
 export default {
   common: {
-    app_name: 'QuantDinger',
+    app_name: 'QuantSNS',
     confirm: '確定',
     cancel: '取消',
     save: '儲存',
@@ -894,7 +894,7 @@ export default {
   about: {
     title: '關於我們',
     intro:
-      'QuantDinger 是一套面向交易研究與自動化執行的 AI 輔助交易系統，涵蓋行情分析、策略管理、交易執行與資產追蹤。系統輸出僅作為研究與決策輔助，不構成投資建議；市場交易存在風險，請結合自身情況謹慎使用。',
+      'QuantSNS 是一套面向交易研究與自動化執行的 AI 輔助交易系統，涵蓋行情分析、策略管理、交易執行與資產追蹤。系統輸出僅作為研究與決策輔助，不構成投資建議；市場交易存在風險，請結合自身情況謹慎使用。',
     contact_title: '聯絡我們',
     contact_email_label: '客服信箱',
     website_label: '官方網站',
@@ -1190,7 +1190,7 @@ export default {
     tutorial_4: '僅勾選所需權限（建議：讀取 + 現貨/合約交易）。',
     tutorial_5: '儲存後回到本頁填寫 API Key 與 Secret。',
     signup_title: '一鍵開戶',
-    signup_promo: '透過 QuantDinger 專屬通道註冊，享最高 20% 手續費返傭',
+    signup_promo: '透過 QuantSNS 專屬通道註冊，享最高 20% 手續費返傭',
     rebate: '返傭特權',
     list_title: '我的 API Key',
     list_desc: '已儲存 {count} 條憑證',

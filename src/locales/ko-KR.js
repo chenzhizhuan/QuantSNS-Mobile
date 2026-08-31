@@ -1,6 +1,6 @@
 export default {
   common: {
-    app_name: 'QuantDinger',
+    app_name: 'QuantSNS',
     confirm: '확인',
     cancel: '취소',
     save: '저장',
@@ -895,7 +895,7 @@ export default {
   about: {
     title: '앱 정보',
     intro:
-      'QuantDinger는 전략 도구, 시장 데이터, 자산 운용 흐름을 한곳에 모은 플랫폼입니다. 투명한 거래 보조를 지향합니다. 디지털 자산 거래는 고위험이므로 기능과 거래소 규칙을 충분히 이해한 뒤 신중히 이용해 주세요.',
+      'QuantSNS는 전략 도구, 시장 데이터, 자산 운용 흐름을 한곳에 모은 플랫폼입니다. 투명한 거래 보조를 지향합니다. 디지털 자산 거래는 고위험이므로 기능과 거래소 규칙을 충분히 이해한 뒤 신중히 이용해 주세요.',
     contact_title: '문의',
     contact_email_label: '고객 지원 이메일',
     website_label: '공식 웹사이트',
@@ -1191,7 +1191,7 @@ export default {
     tutorial_4: '필요한 권한만 활성화하세요 (권장: 읽기 + 현물/선물 거래).',
     tutorial_5: '저장 후 여기로 돌아와 API Key와 Secret을 입력하세요.',
     signup_title: '원클릭 회원가입',
-    signup_promo: 'QuantDinger 제휴 링크로 가입하면 최대 20% 수수료 캐시백',
+    signup_promo: 'QuantSNS 제휴 링크로 가입하면 최대 20% 수수료 캐시백',
     rebate: '캐시백 제휴',
     list_title: '내 API Key',
     list_desc: '{count} 개 인증 정보 저장됨',
